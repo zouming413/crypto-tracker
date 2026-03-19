@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# 加密货币理财记录 - GitHub Pages 部署脚本
+# Simple Crypto - GitHub Pages 部署脚本
 
 set -e
 
@@ -17,7 +17,7 @@ if [ ! -d ".git" ]; then
     echo "📦 初始化 Git 仓库..."
     git init
     git add .
-    git commit -m "Initial commit: Crypto Tracker"
+    git commit -m "Initial commit: Simple Crypto"
     echo "✅ Git 仓库初始化完成"
 else
     echo "✅ Git 仓库已存在"

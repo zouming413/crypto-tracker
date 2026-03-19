@@ -7,13 +7,12 @@
     <link rel="stylesheet" href="style.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
 </head>
 <body>
-    <!-- 导航栏 -->
     <nav class="nav">
         <div class="nav-container">
-            <div class="nav-logo">⚡ Crypto Tracker</div>
+            <div class="nav-logo">Simple Crypto</div>
             <div class="lang-switch">
                 <button class="lang-btn active" data-lang="zh" onclick="switchLanguage('zh')">中文</button>
                 <button class="lang-btn" data-lang="en" onclick="switchLanguage('en')">EN</button>
@@ -21,91 +20,67 @@
         </div>
     </nav>
 
-    <!-- Hero 区域 -->
-    <section class="hero">
-        <div class="hero-content">
-            <h1 class="hero-title">加密资产追踪</h1>
-            <p class="hero-subtitle">专业的理财记录工具。极简、安全、本地存储。</p>
-            <div class="hero-actions">
-                <button class="apple-button apple-button-primary" onclick="scrollToSection('fixed-income')">
-                    开始使用
-                </button>
-            </div>
-        </div>
-    </section>
-
-    <!-- 主要内容 -->
     <main class="main">
-        <!-- 固定收益卡片 -->
-        <section class="section" id="fixed-income">
-            <div class="container">
-                <div class="section-header">
-                    <h2 class="section-title">固定收益</h2>
-                    <button class="apple-button apple-button-secondary" onclick="openFixedIncomeModal()">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <line x1="12" y1="5" x2="12" y2="19"></line>
-                            <line x1="5" y1="12" x2="19" y2="12"></line>
-                        </svg>
-                        添加记录
-                    </button>
-                </div>
-
-                <div class="table-container" id="fixedIncomeTable">
-                    <!-- 表格由 JS 动态生成 -->
-                </div>
-
-                <div class="empty-state" id="fixedIncomeEmpty">
-                    <p>暂无固定收益记录</p>
-                    <p class="empty-hint">点击右上角按钮添加第一条记录</p>
-                </div>
+        <section class="hero container">
+            <div class="hero-card">
+                <p class="hero-subtitle">简单安全的加密货币理财策略</p>
             </div>
         </section>
 
-        <!-- 长线策略卡片 -->
-        <section class="section section-alt" id="strategy">
-            <div class="container">
-                <div class="section-header">
-                    <h2 class="section-title">长线策略</h2>
-                    <button class="apple-button apple-button-secondary" onclick="openStrategyModal()">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <circle cx="12" cy="12" r="3"></circle>
-                            <path d="M12 1v6m0 6v6m5.66-11.66l-4.24 4.24m0 5.66l4.24 4.24M23 12h-6m-6 0H1m11.66-5.66l-4.24-4.24m0 5.66l-4.24 4.24"></path>
-                        </svg>
-                        策略说明
-                    </button>
+        <section class="section container" id="fixed-income">
+            <div class="section-header">
+                <div>
+                    <h2 class="section-title" data-i18n="fixedIncomeSectionTitle">固定收益</h2>
                 </div>
+                <button class="apple-button apple-button-secondary" onclick="openFixedIncomeModal()">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="12" y1="5" x2="12" y2="19"></line>
+                        <line x1="5" y1="12" x2="19" y2="12"></line>
+                    </svg>
+                    添加记录
+                </button>
+            </div>
 
-                <!-- 初始金额输入 -->
-                <div class="apple-card">
-                    <div class="input-group">
-                        <label class="apple-label">初始总金额 (U)</label>
-                        <input type="number" id="totalAmount" placeholder="10,000" class="apple-input" onchange="saveTotalAmount()">
-                        <p class="input-hint">设置后自动计算各档位金额</p>
-                    </div>
-                </div>
+            <div class="table-container" id="fixedIncomeTable"></div>
 
-                <!-- 策略展示区域 -->
-                <div id="strategyTables" class="strategy-section">
-                    <!-- 由 JS 动态生成 -->
-                </div>
+            <div class="empty-state" id="fixedIncomeEmpty">
+                <p>暂无固定收益记录</p>
+                <p class="empty-hint">点击右上角按钮添加第一条记录</p>
+            </div>
+        </section>
 
-                <!-- 操作按钮 -->
-                <div class="action-buttons">
-                    <button class="apple-button apple-button-secondary" onclick="copyStrategy('text')">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
-                            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
-                        </svg>
-                        复制为文本
-                    </button>
-                    <button class="apple-button apple-button-secondary" onclick="copyStrategy('markdown')">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-                            <polyline points="14 2 14 8 20 8"></polyline>
-                        </svg>
-                        复制为 Markdown
-                    </button>
+        <section class="section container" id="strategy">
+            <div class="section-header">
+                <div>
+                    <h2 class="section-title" data-i18n="strategySectionTitle">长线策略</h2>
                 </div>
+            </div>
+
+            <div class="apple-card strategy-control-card">
+                <div class="input-group">
+                    <label class="apple-label" data-i18n="totalAmountLabel">初始总金额 (U)</label>
+                    <input type="number" id="totalAmount" placeholder="10,000" class="apple-input" onchange="saveTotalAmount()">
+                    <p class="input-hint" data-i18n="totalAmountHint">设置后自动计算各档位金额</p>
+                </div>
+            </div>
+
+            <div id="strategyTables" class="strategy-section"></div>
+
+            <div class="action-buttons">
+                <button class="apple-button apple-button-secondary" onclick="copyStrategy('text')">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                    </svg>
+                    <span data-i18n="copyTextButton">复制为文本</span>
+                </button>
+                <button class="apple-button apple-button-secondary" onclick="copyStrategy('markdown')">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                        <polyline points="14 2 14 8 20 8"></polyline>
+                    </svg>
+                    <span data-i18n="copyMarkdownButton">复制为 Markdown</span>
+                </button>
             </div>
         </section>
     </main>
@@ -113,7 +88,8 @@
     <!-- 页脚 -->
     <footer class="footer">
         <div class="footer-content">
-            <p>© 2026 Crypto Tracker. 数据存储在本地，绝不上传。</p>
+            <p class="footer-title">Simple Crypto</p>
+            <p class="footer-subtitle">简单安全的加密货币理财策略</p>
         </div>
     </footer>
 
@@ -121,7 +97,7 @@
     <div class="modal-overlay" id="fixedIncomeModal">
         <div class="modal-content">
             <div class="modal-header">
-                <h3>添加固定收益记录</h3>
+                <h3 data-i18n="fixedIncomeModalTitle">添加固定收益记录</h3>
                 <button class="modal-close" onclick="closeFixedIncomeModal()">
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <line x1="18" y1="6" x2="6" y2="18"></line>
@@ -131,9 +107,9 @@
             </div>
             <form id="fixedIncomeForm" onsubmit="addFixedIncome(event)" class="modal-form">
                 <div class="form-group">
-                    <label class="form-label">代币名称</label>
+                    <label class="form-label" data-i18n="tokenLabel">代币名称</label>
                     <div class="token-selector">
-                        <input type="text" id="token" placeholder="输入或选择代币" class="form-input" required>
+                        <input type="text" id="token" placeholder="输入或选择代币" class="form-input" data-i18n-placeholder="tokenPlaceholder" required>
                         <div class="token-chips" id="tokenChips">
                             <span class="token-chip" data-token="USDT">USDT</span>
                             <span class="token-chip" data-token="USDC">USDC</span>
@@ -149,9 +125,9 @@
                     </div>
                 </div>
                 <div class="form-group">
-                    <label class="form-label">平台</label>
+                    <label class="form-label" data-i18n="platformLabel">平台</label>
                     <div class="platform-selector">
-                        <input type="text" id="platform" placeholder="输入或选择平台" class="form-input" required>
+                        <input type="text" id="platform" placeholder="输入或选择平台" class="form-input" data-i18n-placeholder="platformPlaceholder" required>
                         <div class="platform-chips" id="platformChips">
                             <span class="platform-chip" data-platform="Binance 主站">Binance 主站</span>
                             <span class="platform-chip" data-platform="Binance 钱包">Binance 钱包</span>
@@ -166,41 +142,41 @@
                     </div>
                 </div>
                 <div class="form-group">
-                    <label class="form-label">年化收益率 (%)</label>
+                    <label class="form-label" data-i18n="apyLabel">年化收益率 (%)</label>
                     <input type="number" step="0.01" id="apy" placeholder="5.5" class="form-input" required>
                 </div>
                 <div class="form-group">
-                    <label class="form-label">开始日期</label>
-                    <input type="date" id="startDate" class="form-input" required>
+                    <label class="form-label" data-i18n="startDateLabel">开始日期</label>
+                    <input type="date" id="startDate" class="form-input date-input" required>
                     <div class="time-toggle" style="margin-top: 12px;">
                         <input type="checkbox" id="startTimeToggle" class="toggle-checkbox" onchange="toggleTimeInput('start')">
                         <label for="startTimeToggle" class="toggle-label">
                             <span class="toggle-slider"></span>
-                            <span class="toggle-text">添加时间</span>
+                            <span class="toggle-text" data-i18n="addTimeToggle">添加时间</span>
                         </label>
                     </div>
                     <input type="time" id="startTime" class="form-input time-input" style="display: none;">
                 </div>
                 <div class="form-group">
-                    <label class="form-label">结束日期</label>
-                    <input type="date" id="endDate" class="form-input" required>
+                    <label class="form-label" data-i18n="endDateLabel">结束日期</label>
+                    <input type="date" id="endDate" class="form-input date-input" required>
                     <div class="time-toggle" style="margin-top: 12px;">
                         <input type="checkbox" id="endTimeToggle" class="toggle-checkbox" onchange="toggleTimeInput('end')">
                         <label for="endTimeToggle" class="toggle-label">
                             <span class="toggle-slider"></span>
-                            <span class="toggle-text">添加时间</span>
+                            <span class="toggle-text" data-i18n="addTimeToggle">添加时间</span>
                         </label>
                     </div>
                     <input type="time" id="endTime" class="form-input time-input" style="display: none;">
                 </div>
                 <div class="form-group">
-                    <label class="form-label">详细说明</label>
-                    <textarea id="description" class="form-textarea" placeholder="输入详细信息..." maxlength="2000" rows="5"></textarea>
+                    <label class="form-label" data-i18n="descriptionLabel">详细说明</label>
+                    <textarea id="description" class="form-textarea" placeholder="输入详细信息..." data-i18n-placeholder="descriptionPlaceholder" maxlength="2000" rows="5"></textarea>
                     <div class="char-count"><span id="charCount">0</span> / 2000</div>
                 </div>
                 <div class="modal-actions">
-                    <button type="button" class="apple-button apple-button-secondary" onclick="closeFixedIncomeModal()">取消</button>
-                    <button type="submit" class="apple-button apple-button-primary">保存</button>
+                    <button type="button" class="apple-button apple-button-secondary" onclick="closeFixedIncomeModal()" data-i18n="cancelButton">取消</button>
+                    <button type="submit" class="apple-button apple-button-primary" data-i18n="saveButton">保存</button>
                 </div>
             </form>
         </div>
@@ -210,7 +186,7 @@
     <div class="modal-overlay" id="detailModal">
         <div class="modal-content">
             <div class="modal-header">
-                <h3>详细说明</h3>
+                <h3 data-i18n="detailModalTitle">详细说明</h3>
                 <button class="modal-close" onclick="closeDetailModal()">
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <line x1="18" y1="6" x2="6" y2="18"></line>
@@ -224,7 +200,7 @@
                 </div>
             </div>
             <div class="modal-actions">
-                <button class="apple-button apple-button-primary" onclick="closeDetailModal()">关闭</button>
+                <button class="apple-button apple-button-primary" onclick="closeDetailModal()" data-i18n="closeButton">关闭</button>
             </div>
         </div>
     </div>
