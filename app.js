@@ -43,6 +43,47 @@ const DEFAULT_STRATEGIES = {
 };
 
 let currentLang = 'zh';
+const PICKER_COPY = {
+    zh: {
+        weekdays: ['日', '一', '二', '三', '四', '五', '六'],
+        clear: '清除',
+        today: '今天',
+        now: '现在',
+        done: '完成',
+        dateTitle: '选择日期',
+        timeTitle: '选择时间',
+        hour: '小时',
+        minute: '分钟'
+    },
+    en: {
+        weekdays: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'],
+        clear: 'Clear',
+        today: 'Today',
+        now: 'Now',
+        done: 'Done',
+        dateTitle: 'Select date',
+        timeTitle: 'Select time',
+        hour: 'Hour',
+        minute: 'Minute'
+    }
+};
+const pickerState = {
+    activeInput: null,
+    mode: null,
+    dateCursor: new Date(),
+    selectedHour: '00',
+    selectedMinute: '00',
+    elements: {}
+};
+const toastState = {
+    container: null,
+    timer: null
+};
+const remoteState = {
+    available: false,
+    connected: false,
+    loading: false
+};
 
 // ===== 语言包 =====
 const LANGUAGES = {
@@ -110,8 +151,25 @@ const LANGUAGES = {
         addTimeToggle: '添加时间',
         descriptionLabel: '详细说明',
         descriptionPlaceholder: '输入详细信息...',
+        syncModalTitle: '云端同步',
+        syncPasswordLabel: '访问口令',
+        syncPasswordPlaceholder: '输入云端访问口令',
+        syncPasswordHint: '连接后，记录会同步到云端数据库。',
+        syncConnectButton: '连接云端',
+        syncStatusLocal: '本地模式',
+        syncStatusDisconnected: '云端可用',
+        syncStatusConnected: '云端已连接',
+        syncStatusConnecting: '连接中',
+        syncConnected: '已连接到云端',
+        syncConnectFailed: '云端暂不可用',
+        syncMigrated: '云端数据已加载',
+        syncSaveFailed: '云端保存失败，已保留本地数据',
+        syncRemoteReady: '云端存储已启用',
         cancelButton: '取消',
         saveButton: '保存',
+        tokenRequiredError: '请输入代币名称',
+        platformRequiredError: '请输入平台',
+        apyRequiredError: '请输入有效的年化收益率',
         detailModalTitle: '详细说明',
         closeButton: '关闭',
         emptyState: '暂无固定收益记录',
@@ -129,6 +187,7 @@ const LANGUAGES = {
         today: '今天到期',
         delete: '删除',
         dateError: '结束日期必须晚于开始日期',
+        dateRequiredError: '请选择开始日期和结束日期',
         confirmDelete: '确定要删除这条记录吗？',
         setAmountFirst: '请先设置初始总金额',
         copied: '已复制到剪贴板',
@@ -215,8 +274,25 @@ const LANGUAGES = {
         addTimeToggle: 'Add time',
         descriptionLabel: 'Notes',
         descriptionPlaceholder: 'Add more details...',
+        syncModalTitle: 'Cloud Sync',
+        syncPasswordLabel: 'Access Password',
+        syncPasswordPlaceholder: 'Enter the cloud access password',
+        syncPasswordHint: 'Once connected, your records sync to the hosted database.',
+        syncConnectButton: 'Connect Cloud',
+        syncStatusLocal: 'Local Mode',
+        syncStatusDisconnected: 'Cloud Ready',
+        syncStatusConnected: 'Cloud Connected',
+        syncStatusConnecting: 'Connecting',
+        syncConnected: 'Connected to cloud storage',
+        syncConnectFailed: 'Cloud storage is unavailable',
+        syncMigrated: 'Cloud data loaded',
+        syncSaveFailed: 'Cloud save failed. Your local copy is still preserved',
+        syncRemoteReady: 'Hosted storage is enabled',
         cancelButton: 'Cancel',
         saveButton: 'Save',
+        tokenRequiredError: 'Please enter a token',
+        platformRequiredError: 'Please enter a platform',
+        apyRequiredError: 'Please enter a valid APY',
         detailModalTitle: 'Details',
         closeButton: 'Close',
         emptyState: 'No fixed income records',
@@ -234,6 +310,7 @@ const LANGUAGES = {
         today: 'Due today',
         delete: 'Delete',
         dateError: 'End date must be later than start date',
+        dateRequiredError: 'Please select both start and end dates',
         confirmDelete: 'Are you sure you want to delete this record?',
         setAmountFirst: 'Please set the initial total amount first',
         copied: 'Copied to clipboard',
@@ -259,7 +336,7 @@ const LANGUAGES = {
 };
 
 // ===== 初始化 =====
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', async function() {
     const savedLang = localStorage.getItem('crypto_language') || 'zh';
     currentLang = savedLang;
 
@@ -267,15 +344,14 @@ document.addEventListener('DOMContentLoaded', function() {
         btn.classList.toggle('active', btn.getAttribute('data-lang') === currentLang);
     });
 
-    loadFixedIncome();
-    loadTotalAmount();
-    renderStrategies();
     initTokenChips();
     initPlatformChips();
+    initToast();
+    initFieldFeedback();
+    initCustomPickers();
+    await initializeRemoteSync();
+    loadTotalAmount();
     updatePageText();
-
-    console.log('✅ 页面初始化完成');
-    console.log('openFixedIncomeModal 函数存在:', typeof openFixedIncomeModal);
 });
 
 // ===== 切换语言 =====
@@ -298,6 +374,7 @@ function updatePageText() {
     document.querySelector('.nav-logo').textContent = text.navLogo;
     document.querySelector('.hero-subtitle').textContent = text.heroSubtitle;
     updateStaticI18n(text);
+    updateSyncButton();
 
     const fixedIncomeSection = document.getElementById('fixed-income');
     if (fixedIncomeSection) {
@@ -309,6 +386,715 @@ function updatePageText() {
 
     loadFixedIncome();
     renderStrategies();
+    renderOpenPicker();
+}
+
+// ===== 云端同步 =====
+
+async function initializeRemoteSync() {
+    remoteState.loading = true;
+    updateSyncButton();
+
+    try {
+        const response = await fetch('/api/health', {
+            headers: { accept: 'application/json' }
+        });
+
+        if (!response.ok) {
+            remoteState.available = false;
+            remoteState.loading = false;
+            updateSyncButton();
+            return;
+        }
+
+        const result = await response.json();
+        remoteState.available = Boolean(result.configured);
+    } catch (error) {
+        remoteState.available = false;
+    }
+
+    if (!remoteState.available) {
+        remoteState.loading = false;
+        updateSyncButton();
+        return;
+    }
+
+    if (remoteState.available) {
+        const connected = await connectRemoteStorage(true);
+        if (connected) {
+            remoteState.loading = false;
+            updateSyncButton();
+            return;
+        }
+    }
+
+    remoteState.loading = false;
+    updateSyncButton();
+}
+
+function getSyncStatusLabel() {
+    const text = LANGUAGES[currentLang];
+
+    if (remoteState.loading) {
+        return text.syncStatusConnecting;
+    }
+
+    if (remoteState.connected) {
+        return text.syncStatusConnected;
+    }
+
+    if (remoteState.available) {
+        return text.syncStatusDisconnected;
+    }
+
+    return text.syncStatusLocal;
+}
+
+function updateSyncButton() {
+    const button = document.getElementById('syncButton');
+    const textNode = document.getElementById('syncButtonText');
+
+    if (!button || !textNode) {
+        return;
+    }
+
+    textNode.textContent = getSyncStatusLabel();
+    button.classList.toggle('is-connected', remoteState.connected);
+    button.classList.toggle('is-connecting', remoteState.loading);
+}
+
+async function openSyncModal() {
+    if (!remoteState.available) {
+        showToast(LANGUAGES[currentLang].syncStatusLocal, 'info');
+        return;
+    }
+
+    if (remoteState.connected) {
+        showToast(LANGUAGES[currentLang].syncConnected, 'success');
+        return;
+    }
+
+    remoteState.loading = true;
+    updateSyncButton();
+    await connectRemoteStorage(false);
+    remoteState.loading = false;
+    updateSyncButton();
+}
+
+function closeSyncModal() {
+    const input = document.getElementById('syncPassword');
+    if (input) {
+        input.classList.remove('is-invalid');
+    }
+    document.getElementById('syncModal').classList.remove('active');
+}
+
+async function submitSyncAuth(event) {
+    event.preventDefault();
+    remoteState.loading = true;
+    updateSyncButton();
+
+    const connected = await connectRemoteStorage(false);
+    remoteState.loading = false;
+    updateSyncButton();
+
+    if (connected) {
+        closeSyncModal();
+    }
+}
+
+async function connectRemoteStorage(silent) {
+    try {
+        const remoteData = await requestRemoteState();
+        const normalizedRemote = normalizeSnapshot(remoteData.state);
+
+        remoteState.connected = true;
+        applySnapshotToLocalStorage(normalizedRemote);
+
+        loadTotalAmount();
+        loadFixedIncome();
+        renderStrategies();
+
+        if (!silent) {
+            showToast(LANGUAGES[currentLang].syncConnected, 'success');
+        }
+
+        updateSyncButton();
+        return true;
+    } catch (error) {
+        remoteState.connected = false;
+
+        if (!silent) {
+            showToast(LANGUAGES[currentLang].syncConnectFailed, 'error');
+        }
+
+        updateSyncButton();
+        return false;
+    }
+}
+
+async function syncStateToRemote() {
+    if (!remoteState.available || !remoteState.connected) {
+        return;
+    }
+
+    try {
+        await pushSnapshotToRemote(getLocalSnapshot());
+    } catch (error) {
+        remoteState.connected = false;
+        updateSyncButton();
+        showToast(LANGUAGES[currentLang].syncSaveFailed, 'error');
+    }
+}
+
+async function requestRemoteState() {
+    const response = await fetch('/api/state', {
+        headers: {
+            accept: 'application/json'
+        }
+    });
+
+    if (!response.ok) {
+        throw new Error(`Remote load failed: ${response.status}`);
+    }
+
+    return response.json();
+}
+
+async function pushSnapshotToRemote(snapshot) {
+    const response = await fetch('/api/state', {
+        method: 'PUT',
+        headers: {
+            'content-type': 'application/json',
+            accept: 'application/json'
+        },
+        body: JSON.stringify({
+            state: normalizeSnapshot(snapshot)
+        })
+    });
+
+    if (!response.ok) {
+        throw new Error(`Remote save failed: ${response.status}`);
+    }
+
+    return response.json();
+}
+
+function getLocalSnapshot() {
+    return normalizeSnapshot({
+        fixedIncome: JSON.parse(localStorage.getItem(KEYS.FIXED_INCOME) || '[]'),
+        totalAmount: localStorage.getItem(KEYS.TOTAL_AMOUNT) || '',
+        strategies: JSON.parse(localStorage.getItem(KEYS.STRATEGIES) || 'null')
+    });
+}
+
+function applySnapshotToLocalStorage(snapshot) {
+    const normalized = normalizeSnapshot(snapshot);
+
+    localStorage.setItem(KEYS.FIXED_INCOME, JSON.stringify(normalized.fixedIncome));
+    localStorage.setItem(KEYS.TOTAL_AMOUNT, normalized.totalAmount);
+    localStorage.setItem(KEYS.STRATEGIES, JSON.stringify(normalized.strategies));
+}
+
+function normalizeSnapshot(snapshot = {}) {
+    return {
+        fixedIncome: Array.isArray(snapshot.fixedIncome) ? snapshot.fixedIncome : [],
+        totalAmount: snapshot.totalAmount === undefined || snapshot.totalAmount === null ? '' : String(snapshot.totalAmount),
+        strategies: snapshot.strategies && typeof snapshot.strategies === 'object' ? snapshot.strategies : DEFAULT_STRATEGIES
+    };
+}
+
+function hasLocalData(snapshot) {
+    return snapshot.fixedIncome.length > 0 || Boolean(snapshot.totalAmount);
+}
+
+function isStateEmpty(snapshot) {
+    return snapshot.fixedIncome.length === 0 && !snapshot.totalAmount;
+}
+
+function initToast() {
+    if (toastState.container) {
+        return;
+    }
+
+    document.body.insertAdjacentHTML('beforeend', '<div class="toast-stack" id="toastStack" aria-live="polite" aria-atomic="true"></div>');
+    toastState.container = document.getElementById('toastStack');
+}
+
+function showToast(message, type = 'info') {
+    if (!message) {
+        return;
+    }
+
+    if (!toastState.container) {
+        initToast();
+    }
+
+    window.clearTimeout(toastState.timer);
+
+    toastState.container.innerHTML = `
+        <div class="toast toast-${type}">
+            <span class="toast-mark"></span>
+            <span class="toast-message">${message}</span>
+        </div>
+    `;
+
+    const toast = toastState.container.querySelector('.toast');
+    requestAnimationFrame(() => toast.classList.add('is-visible'));
+
+    toastState.timer = window.setTimeout(() => {
+        toast.classList.remove('is-visible');
+        window.setTimeout(() => {
+            if (toastState.container) {
+                toastState.container.innerHTML = '';
+            }
+        }, 220);
+    }, 2800);
+}
+
+function initFieldFeedback() {
+    document.querySelectorAll('#fixedIncomeForm .form-input, #fixedIncomeForm .form-textarea, #syncForm .form-input').forEach(field => {
+        field.addEventListener('input', () => field.classList.remove('is-invalid'));
+        field.addEventListener('change', () => field.classList.remove('is-invalid'));
+    });
+}
+
+function showFieldError(message, fieldIds = []) {
+    fieldIds.forEach(id => {
+        const field = document.getElementById(id);
+        if (field) {
+            field.classList.add('is-invalid');
+        }
+    });
+
+    showToast(message, 'error');
+}
+
+function clearFieldErrors() {
+    document.querySelectorAll('#fixedIncomeForm .is-invalid').forEach(field => {
+        field.classList.remove('is-invalid');
+    });
+}
+
+// ===== 自定义日期 / 时间选择器 =====
+
+function initCustomPickers() {
+    createPickerShell();
+
+    document.querySelectorAll('.picker-input').forEach(input => {
+        input.addEventListener('click', () => openPickerForInput(input));
+        input.addEventListener('keydown', event => {
+            if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault();
+                openPickerForInput(input);
+            }
+
+            if (event.key === 'Escape') {
+                closePickerPopovers();
+            }
+        });
+    });
+
+    document.addEventListener('mousedown', event => {
+        const clickedPicker = event.target.closest('.picker-popover');
+        const clickedInput = event.target.closest('.picker-input');
+
+        if (!clickedPicker && !clickedInput) {
+            closePickerPopovers();
+        }
+    });
+
+    document.addEventListener('keydown', event => {
+        if (event.key === 'Escape') {
+            closePickerPopovers();
+        }
+    });
+
+    document.querySelectorAll('.modal-form').forEach(form => {
+        form.addEventListener('scroll', positionActivePicker);
+    });
+
+    window.addEventListener('resize', positionActivePicker);
+}
+
+function createPickerShell() {
+    if (pickerState.elements.date && pickerState.elements.time) {
+        return;
+    }
+
+    document.body.insertAdjacentHTML('beforeend', `
+        <div class="picker-popover" id="datePickerPopover" hidden>
+            <div class="picker-surface">
+                <div class="picker-header">
+                    <button type="button" class="picker-nav" data-direction="-1" aria-label="Previous month">&#8249;</button>
+                    <div class="picker-header-copy">
+                        <div class="picker-title" data-role="title"></div>
+                    </div>
+                    <button type="button" class="picker-nav" data-direction="1" aria-label="Next month">&#8250;</button>
+                </div>
+                <div class="picker-weekdays" data-role="weekdays"></div>
+                <div class="picker-days" data-role="days"></div>
+                <div class="picker-footer">
+                    <button type="button" class="picker-action picker-action-secondary" data-action="clear"></button>
+                    <button type="button" class="picker-action picker-action-primary" data-action="today"></button>
+                </div>
+            </div>
+        </div>
+        <div class="picker-popover picker-popover-time" id="timePickerPopover" hidden>
+            <div class="picker-surface">
+                <div class="picker-header picker-header-time">
+                    <div class="picker-header-copy">
+                        <div class="picker-label" data-role="label"></div>
+                        <div class="time-picker-preview" data-role="preview"></div>
+                    </div>
+                </div>
+                <div class="time-picker-columns">
+                    <div class="time-picker-group">
+                        <div class="picker-label" data-role="hour-label"></div>
+                        <div class="time-picker-options" data-role="hours"></div>
+                    </div>
+                    <div class="time-picker-group">
+                        <div class="picker-label" data-role="minute-label"></div>
+                        <div class="time-picker-options" data-role="minutes"></div>
+                    </div>
+                </div>
+                <div class="picker-footer picker-footer-triple">
+                    <button type="button" class="picker-action picker-action-secondary" data-action="clear"></button>
+                    <button type="button" class="picker-action picker-action-secondary" data-action="now"></button>
+                    <button type="button" class="picker-action picker-action-primary" data-action="done"></button>
+                </div>
+            </div>
+        </div>
+    `);
+
+    pickerState.elements.date = document.getElementById('datePickerPopover');
+    pickerState.elements.time = document.getElementById('timePickerPopover');
+
+    pickerState.elements.date.querySelector('[data-direction="-1"]').addEventListener('click', () => {
+        pickerState.dateCursor.setMonth(pickerState.dateCursor.getMonth() - 1);
+        renderDatePicker();
+    });
+
+    pickerState.elements.date.querySelector('[data-direction="1"]').addEventListener('click', () => {
+        pickerState.dateCursor.setMonth(pickerState.dateCursor.getMonth() + 1);
+        renderDatePicker();
+    });
+
+    pickerState.elements.date.querySelector('[data-role="days"]').addEventListener('click', event => {
+        const dayButton = event.target.closest('.picker-day');
+        if (!dayButton || !pickerState.activeInput) {
+            return;
+        }
+
+        applyPickerValue(dayButton.getAttribute('data-value'));
+        closePickerPopovers();
+    });
+
+    pickerState.elements.date.querySelector('[data-action="clear"]').addEventListener('click', () => {
+        applyPickerValue('');
+        closePickerPopovers();
+    });
+
+    pickerState.elements.date.querySelector('[data-action="today"]').addEventListener('click', () => {
+        applyPickerValue(formatDateInputValue(new Date()));
+        closePickerPopovers();
+    });
+
+    pickerState.elements.time.querySelector('[data-role="hours"]').addEventListener('click', event => {
+        const option = event.target.closest('.time-picker-option');
+        if (!option) {
+            return;
+        }
+
+        pickerState.selectedHour = option.getAttribute('data-value');
+        renderTimePicker();
+    });
+
+    pickerState.elements.time.querySelector('[data-role="minutes"]').addEventListener('click', event => {
+        const option = event.target.closest('.time-picker-option');
+        if (!option) {
+            return;
+        }
+
+        pickerState.selectedMinute = option.getAttribute('data-value');
+        renderTimePicker();
+    });
+
+    pickerState.elements.time.querySelector('[data-action="clear"]').addEventListener('click', () => {
+        applyPickerValue('');
+        closePickerPopovers();
+    });
+
+    pickerState.elements.time.querySelector('[data-action="now"]').addEventListener('click', () => {
+        const currentTime = getCurrentRoundedTime();
+        pickerState.selectedHour = currentTime.hour;
+        pickerState.selectedMinute = currentTime.minute;
+        applyPickerValue(`${pickerState.selectedHour}:${pickerState.selectedMinute}`);
+        closePickerPopovers();
+    });
+
+    pickerState.elements.time.querySelector('[data-action="done"]').addEventListener('click', () => {
+        applyPickerValue(`${pickerState.selectedHour}:${pickerState.selectedMinute}`);
+        closePickerPopovers();
+    });
+}
+
+function openPickerForInput(input) {
+    if (!input) {
+        return;
+    }
+
+    if (input.getAttribute('data-picker-type') === 'date') {
+        openDatePicker(input);
+        return;
+    }
+
+    openTimePicker(input);
+}
+
+function openDatePicker(input) {
+    closePickerPopovers();
+
+    pickerState.activeInput = input;
+    pickerState.mode = 'date';
+    pickerState.dateCursor = parseDateInputValue(input.value) || new Date();
+    pickerState.dateCursor = new Date(pickerState.dateCursor.getFullYear(), pickerState.dateCursor.getMonth(), 1);
+
+    input.classList.add('picker-open');
+    pickerState.elements.date.hidden = false;
+    renderDatePicker();
+    positionActivePicker();
+}
+
+function openTimePicker(input) {
+    closePickerPopovers();
+
+    const parsedTime = parseTimeInputValue(input.value) || getCurrentRoundedTime();
+
+    pickerState.activeInput = input;
+    pickerState.mode = 'time';
+    pickerState.selectedHour = parsedTime.hour;
+    pickerState.selectedMinute = parsedTime.minute;
+
+    input.classList.add('picker-open');
+    pickerState.elements.time.hidden = false;
+    renderTimePicker();
+    positionActivePicker();
+}
+
+function renderOpenPicker() {
+    if (pickerState.mode === 'date' && !pickerState.elements.date.hidden) {
+        renderDatePicker();
+    }
+
+    if (pickerState.mode === 'time' && !pickerState.elements.time.hidden) {
+        renderTimePicker();
+    }
+}
+
+function renderDatePicker() {
+    if (!pickerState.elements.date) {
+        return;
+    }
+
+    const pickerText = PICKER_COPY[currentLang];
+    const locale = currentLang === 'zh' ? 'zh-CN' : 'en-US';
+    const monthTitle = new Intl.DateTimeFormat(locale, {
+        year: 'numeric',
+        month: 'long'
+    }).format(pickerState.dateCursor);
+
+    pickerState.elements.date.querySelector('[data-role="title"]').textContent = monthTitle;
+    pickerState.elements.date.querySelector('[data-role="weekdays"]').innerHTML = pickerText.weekdays
+        .map(day => `<span>${day}</span>`)
+        .join('');
+
+    const selectedValue = pickerState.activeInput ? pickerState.activeInput.value : '';
+    const todayValue = formatDateInputValue(new Date());
+    const days = buildCalendarDays(pickerState.dateCursor);
+
+    pickerState.elements.date.querySelector('[data-role="days"]').innerHTML = days.map(day => {
+        const classes = [
+            'picker-day',
+            day.inCurrentMonth ? '' : 'is-outside',
+            day.value === selectedValue ? 'is-selected' : '',
+            day.value === todayValue ? 'is-today' : ''
+        ].filter(Boolean).join(' ');
+
+        return `<button type="button" class="${classes}" data-value="${day.value}">${day.label}</button>`;
+    }).join('');
+
+    pickerState.elements.date.querySelector('[data-action="clear"]').textContent = pickerText.clear;
+    pickerState.elements.date.querySelector('[data-action="today"]').textContent = pickerText.today;
+    positionActivePicker();
+}
+
+function renderTimePicker() {
+    if (!pickerState.elements.time) {
+        return;
+    }
+
+    const pickerText = PICKER_COPY[currentLang];
+    const hours = Array.from({ length: 24 }, (_, index) => padNumber(index));
+    const minutes = Array.from({ length: 12 }, (_, index) => padNumber(index * 5));
+
+    pickerState.elements.time.querySelector('[data-role="label"]').textContent = pickerText.timeTitle;
+    pickerState.elements.time.querySelector('[data-role="preview"]').textContent = `${pickerState.selectedHour}:${pickerState.selectedMinute}`;
+    pickerState.elements.time.querySelector('[data-role="hour-label"]').textContent = pickerText.hour;
+    pickerState.elements.time.querySelector('[data-role="minute-label"]').textContent = pickerText.minute;
+
+    pickerState.elements.time.querySelector('[data-role="hours"]').innerHTML = hours.map(hour => `
+        <button
+            type="button"
+            class="time-picker-option ${hour === pickerState.selectedHour ? 'is-selected' : ''}"
+            data-value="${hour}"
+        >${hour}</button>
+    `).join('');
+
+    pickerState.elements.time.querySelector('[data-role="minutes"]').innerHTML = minutes.map(minute => `
+        <button
+            type="button"
+            class="time-picker-option ${minute === pickerState.selectedMinute ? 'is-selected' : ''}"
+            data-value="${minute}"
+        >${minute}</button>
+    `).join('');
+
+    pickerState.elements.time.querySelector('[data-action="clear"]').textContent = pickerText.clear;
+    pickerState.elements.time.querySelector('[data-action="now"]').textContent = pickerText.now;
+    pickerState.elements.time.querySelector('[data-action="done"]').textContent = pickerText.done;
+
+    requestAnimationFrame(() => {
+        scrollSelectedTimeOptionIntoView(pickerState.elements.time.querySelector('[data-role="hours"]'));
+        scrollSelectedTimeOptionIntoView(pickerState.elements.time.querySelector('[data-role="minutes"]'));
+        positionActivePicker();
+    });
+}
+
+function buildCalendarDays(cursorDate) {
+    const year = cursorDate.getFullYear();
+    const month = cursorDate.getMonth();
+    const firstDay = new Date(year, month, 1);
+    const gridStart = new Date(year, month, 1 - firstDay.getDay());
+    const days = [];
+
+    for (let index = 0; index < 42; index += 1) {
+        const date = new Date(gridStart);
+        date.setDate(gridStart.getDate() + index);
+        days.push({
+            label: date.getDate(),
+            value: formatDateInputValue(date),
+            inCurrentMonth: date.getMonth() === month
+        });
+    }
+
+    return days;
+}
+
+function positionActivePicker() {
+    if (!pickerState.activeInput || !pickerState.mode) {
+        return;
+    }
+
+    const popover = pickerState.mode === 'date' ? pickerState.elements.date : pickerState.elements.time;
+    if (!popover || popover.hidden) {
+        return;
+    }
+
+    const inputRect = pickerState.activeInput.getBoundingClientRect();
+    const popoverRect = popover.getBoundingClientRect();
+    const gap = 10;
+    const viewportPadding = 12;
+
+    let left = inputRect.left;
+    let top = inputRect.bottom + gap;
+
+    if (left + popoverRect.width > window.innerWidth - viewportPadding) {
+        left = window.innerWidth - popoverRect.width - viewportPadding;
+    }
+
+    if (left < viewportPadding) {
+        left = viewportPadding;
+    }
+
+    if (top + popoverRect.height > window.innerHeight - viewportPadding) {
+        top = inputRect.top - popoverRect.height - gap;
+    }
+
+    if (top < viewportPadding) {
+        top = viewportPadding;
+    }
+
+    popover.style.left = `${Math.round(left)}px`;
+    popover.style.top = `${Math.round(top)}px`;
+}
+
+function closePickerPopovers() {
+    document.querySelectorAll('.picker-input').forEach(input => input.classList.remove('picker-open'));
+
+    Object.values(pickerState.elements).forEach(element => {
+        if (element) {
+            element.hidden = true;
+        }
+    });
+
+    pickerState.activeInput = null;
+    pickerState.mode = null;
+}
+
+function applyPickerValue(value) {
+    if (!pickerState.activeInput) {
+        return;
+    }
+
+    pickerState.activeInput.value = value;
+    pickerState.activeInput.dispatchEvent(new Event('input', { bubbles: true }));
+    pickerState.activeInput.dispatchEvent(new Event('change', { bubbles: true }));
+}
+
+function scrollSelectedTimeOptionIntoView(container) {
+    const selected = container ? container.querySelector('.is-selected') : null;
+
+    if (selected) {
+        selected.scrollIntoView({ block: 'nearest' });
+    }
+}
+
+function parseDateInputValue(value) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+        return null;
+    }
+
+    const [year, month, day] = value.split('-').map(Number);
+    return new Date(year, month - 1, day);
+}
+
+function parseTimeInputValue(value) {
+    if (!/^\d{2}:\d{2}$/.test(value)) {
+        return null;
+    }
+
+    const [hour, minute] = value.split(':');
+    return { hour, minute };
+}
+
+function formatDateInputValue(date) {
+    return [
+        date.getFullYear(),
+        padNumber(date.getMonth() + 1),
+        padNumber(date.getDate())
+    ].join('-');
+}
+
+function getCurrentRoundedTime() {
+    const now = new Date();
+    return {
+        hour: padNumber(now.getHours()),
+        minute: padNumber(Math.floor(now.getMinutes() / 5) * 5)
+    };
+}
+
+function padNumber(value) {
+    return String(value).padStart(2, '0');
 }
 
 // ===== 固定收益板块 =====
@@ -370,22 +1156,50 @@ function renderFixedIncomeTable(data) {
     `;
 }
 
-function addFixedIncome(event) {
+async function addFixedIncome(event) {
     event.preventDefault();
 
-    const token = document.getElementById('token').value.trim();
-    const platform = document.getElementById('platform').value.trim();
-    const apy = parseFloat(document.getElementById('apy').value);
-    const startDate = document.getElementById('startDate').value;
-    const endDate = document.getElementById('endDate').value;
+    clearFieldErrors();
+
+    const tokenInput = document.getElementById('token');
+    const platformInput = document.getElementById('platform');
+    const apyInput = document.getElementById('apy');
+    const startDateInput = document.getElementById('startDate');
+    const endDateInput = document.getElementById('endDate');
+    const token = tokenInput.value.trim();
+    const platform = platformInput.value.trim();
+    const apy = parseFloat(apyInput.value);
+    const startDate = startDateInput.value;
+    const endDate = endDateInput.value;
     const startTime = document.getElementById('startTimeToggle').checked ? document.getElementById('startTime').value : '';
     const endTime = document.getElementById('endTimeToggle').checked ? document.getElementById('endTime').value : '';
     const description = document.getElementById('description').value.trim();
+
+    if (!token) {
+        showFieldError(LANGUAGES[currentLang].tokenRequiredError, ['token']);
+        return;
+    }
+
+    if (!platform) {
+        showFieldError(LANGUAGES[currentLang].platformRequiredError, ['platform']);
+        return;
+    }
+
+    if (apyInput.value.trim() === '' || Number.isNaN(apy) || apy < 0) {
+        showFieldError(LANGUAGES[currentLang].apyRequiredError, ['apy']);
+        return;
+    }
+
+    if (!startDate || !endDate) {
+        showFieldError(LANGUAGES[currentLang].dateRequiredError, ['startDate', 'endDate']);
+        return;
+    }
+
     const startAt = buildDateTimeValue(startDate, startTime);
     const endAt = buildDateTimeValue(endDate, endTime);
 
     if (new Date(endAt) <= new Date(startAt)) {
-        alert(LANGUAGES[currentLang].dateError);
+        showFieldError(LANGUAGES[currentLang].dateError, ['startDate', 'endDate']);
         return;
     }
 
@@ -398,15 +1212,17 @@ function addFixedIncome(event) {
     document.getElementById('fixedIncomeForm').reset();
     closeFixedIncomeModal();
     loadFixedIncome();
+    await syncStateToRemote();
 }
 
-function deleteFixedIncome(index) {
+async function deleteFixedIncome(index) {
     if (!confirm(LANGUAGES[currentLang].confirmDelete)) return;
 
     const data = JSON.parse(localStorage.getItem(KEYS.FIXED_INCOME) || '[]');
     data.splice(index, 1);
     localStorage.setItem(KEYS.FIXED_INCOME, JSON.stringify(data));
     loadFixedIncome();
+    await syncStateToRemote();
 }
 
 // ===== 长线策略板块 =====
@@ -416,10 +1232,11 @@ function loadTotalAmount() {
     document.getElementById('totalAmount').value = amount;
 }
 
-function saveTotalAmount() {
+async function saveTotalAmount() {
     const amount = document.getElementById('totalAmount').value;
     localStorage.setItem(KEYS.TOTAL_AMOUNT, amount);
     renderStrategies();
+    await syncStateToRemote();
 }
 
 function getStrategies() {
@@ -493,7 +1310,7 @@ function copyStrategy(format) {
     const text = LANGUAGES[currentLang];
 
     if (totalAmount === 0) {
-        alert(text.setAmountFirst);
+        showToast(text.setAmountFirst, 'error');
         return;
     }
 
@@ -533,22 +1350,23 @@ function copyStrategy(format) {
     }
 
     navigator.clipboard.writeText(content).then(() => {
-        alert(text.copied);
+        showToast(text.copied, 'success');
     }).catch(() => {
-        alert(text.copyFailed);
+        showToast(text.copyFailed, 'error');
     });
 }
 
 // ===== 弹窗控制 =====
 
 function openFixedIncomeModal() {
-    console.log('openFixedIncomeModal 被调用');
     document.getElementById('fixedIncomeModal').classList.add('active');
 }
 
 function closeFixedIncomeModal() {
+    closePickerPopovers();
     document.getElementById('fixedIncomeModal').classList.remove('active');
     document.getElementById('fixedIncomeForm').reset();
+    clearFieldErrors();
     document.querySelectorAll('.token-chip').forEach(chip => chip.classList.remove('selected'));
     document.querySelectorAll('.platform-chip').forEach(chip => chip.classList.remove('selected'));
     document.getElementById('charCount').textContent = '0';
@@ -557,7 +1375,6 @@ function closeFixedIncomeModal() {
 }
 
 function openStrategyModal() {
-    console.log('openStrategyModal 被调用');
     document.getElementById('strategyModal').classList.add('active');
 }
 
@@ -568,6 +1385,7 @@ function closeStrategyModal() {
 document.querySelectorAll('.modal-overlay').forEach(modal => {
     modal.addEventListener('click', function(e) {
         if (e.target === this) {
+            closePickerPopovers();
             this.classList.remove('active');
         }
     });
@@ -643,6 +1461,9 @@ function toggleTimeInput(type) {
     input.style.display = shouldShow ? 'block' : 'none';
     if (!shouldShow) {
         input.value = '';
+        if (pickerState.activeInput === input) {
+            closePickerPopovers();
+        }
     }
 }
 
@@ -657,6 +1478,10 @@ function resetTimeInput(type) {
     if (input) {
         input.value = '';
         input.style.display = 'none';
+
+        if (pickerState.activeInput === input) {
+            closePickerPopovers();
+        }
     }
 }
 
@@ -674,7 +1499,7 @@ if (textarea && charCount) {
         } else if (count > 1500) {
             charCount.style.color = '#ff9500';
         } else {
-            charCount.style.color = 'var(--color-gray-text)';
+            charCount.style.color = 'var(--text-muted)';
         }
     });
 }
