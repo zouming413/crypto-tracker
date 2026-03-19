@@ -16,3 +16,6 @@
 # Temporary files
 *.tmp
 .temp/
+
+# Cloudflare Wrangler
+.wrangler/
