@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>加密资产追踪 - 测试</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+            padding: 20px;
+        }
+        button {
+            padding: 10px 20px;
+            margin: 10px;
+            cursor: pointer;
+        }
+        #testModal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.5);
+            align-items: center;
+            justify-content: center;
+        }
+        #testModal.active {
+            display: flex;
+        }
+        .modal-content {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+        }
+    </style>
+</head>
+<body>
+    <button onclick="openModal()">打开弹窗</button>
+
+    <div id="testModal">
+        <div class="modal-content">
+            <h3>测试弹窗</h3>
+            <p>如果能看到这个，说明 JavaScript 工作正常</p>
+            <button onclick="closeModal()">关闭</button>
+        </div>
+    </div>
+
+    <script>
+        function openModal() {
+            console.log('openModal 被调用');
+            document.getElementById('testModal').classList.add('active');
+        }
+
+        function closeModal() {
+            document.getElementById('testModal').classList.remove('active');
+        }
+
+        console.log('脚本已加载');
+    </script>
+</body>
+</html>
