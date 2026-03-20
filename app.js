@@ -6,39 +6,76 @@ const KEYS = {
 };
 
 // ===== 默认策略数据 =====
-const DEFAULT_STRATEGIES = {
+const MAINSTREAM_TOKENS = ['BTC', 'ETH', 'BNB', 'AAVE', 'SKY', 'HYPE', 'SOL', 'UNI', 'PENDLE', 'APT'];
+const DEFAULT_STRATEGY_SEED_AMOUNT = 10000;
+const DEFAULT_STRATEGY_BLUEPRINTS = {
     BTC: {
-        name: 'BTC',
-        ratio: 0.6,
+        ratio: 60,
         levels: [
-            { price: 65000, action: '买入', ratio: 0.15 },
-            { price: 50000, action: '买入', ratio: 0.20 },
-            { price: 40000, action: '买入', ratio: 0.30 },
-            { price: 30000, action: '买入', ratio: 0.35 }
+            { price: 65000, action: 'buy', ratio: 9 },
+            { price: 50000, action: 'buy', ratio: 12 },
+            { price: 40000, action: 'buy', ratio: 18 },
+            { price: 30000, action: 'buy', ratio: 21 }
         ]
     },
     ETH: {
-        name: 'ETH',
-        ratio: 0.3,
+        ratio: 30,
         levels: [
-            { price: 4500, action: '卖出', ratio: 0.30 },
-            { price: 6000, action: '卖出', ratio: 0.30 },
-            { price: 1800, action: '买入', ratio: 0.15 },
-            { price: 1500, action: '买入', ratio: 0.20 },
-            { price: 1200, action: '买入', ratio: 0.25 },
-            { price: 1000, action: '买入', ratio: 0.30 }
+            { price: 4500, action: 'sell', ratio: 30 },
+            { price: 6000, action: 'sell', ratio: 30 },
+            { price: 1800, action: 'buy', ratio: 5 },
+            { price: 1500, action: 'buy', ratio: 6 },
+            { price: 1200, action: 'buy', ratio: 8 },
+            { price: 1000, action: 'buy', ratio: 9 }
         ]
     },
     BNB: {
-        name: 'BNB',
-        ratio: 0.1,
+        ratio: 10,
         levels: [
-            { price: 1200, action: '卖出', ratio: 0.30 },
-            { price: 1800, action: '卖出', ratio: 0.30 },
-            { price: 400, action: '买入', ratio: 0.20 },
-            { price: 300, action: '买入', ratio: 0.30 },
-            { price: 200, action: '买入', ratio: 0.40 }
+            { price: 1200, action: 'sell', ratio: 30 },
+            { price: 1800, action: 'sell', ratio: 30 },
+            { price: 400, action: 'buy', ratio: 2 },
+            { price: 300, action: 'buy', ratio: 3 },
+            { price: 200, action: 'buy', ratio: 4 }
         ]
+    }
+};
+const PLATFORM_TRANSLATIONS = {
+    binance_exchange: {
+        zh: 'Binance 主站',
+        en: 'Binance Exchange'
+    },
+    binance_wallet: {
+        zh: 'Binance 钱包',
+        en: 'Binance Wallet'
+    },
+    okx_exchange: {
+        zh: 'OKX 主站',
+        en: 'OKX Exchange'
+    },
+    okx_wallet: {
+        zh: 'OKX 钱包',
+        en: 'OKX Wallet'
+    },
+    aave: {
+        zh: 'Aave',
+        en: 'Aave'
+    },
+    uniswap: {
+        zh: 'Uniswap',
+        en: 'Uniswap'
+    },
+    pendle: {
+        zh: 'Pendle',
+        en: 'Pendle'
+    },
+    venus: {
+        zh: 'Venus',
+        en: 'Venus'
+    },
+    buidlpad: {
+        zh: 'Buidlpad',
+        en: 'Buidlpad'
     }
 };
 
@@ -78,6 +115,9 @@ const pickerState = {
 const toastState = {
     container: null,
     timer: null
+};
+const confirmState = {
+    resolver: null
 };
 const remoteState = {
     available: false,
@@ -136,7 +176,14 @@ const LANGUAGES = {
         addButton: '添加记录',
         strategyButton: '策略说明',
         totalAmountLabel: '初始总金额 (U)',
-        totalAmountHint: '设置后自动计算各档位金额',
+        totalAmountHint: '设置后自动计算各档位金额与数量',
+        strategyTokenLabel: '主流币',
+        currentPositionLabel: '当前额度',
+        strategySelectPlaceholder: '选择币种',
+        addStrategyButton: '添加策略',
+        addLevelButton: '添加档位',
+        deleteStrategyButton: '删除策略',
+        deleteLevelButton: '删除档位',
         copyTextButton: '复制为文本',
         copyMarkdownButton: '复制为 Markdown',
         footerText: '© 2026 Crypto Tracker. 数据存储在本地，绝不上传。',
@@ -174,37 +221,53 @@ const LANGUAGES = {
         closeButton: '关闭',
         emptyState: '暂无固定收益记录',
         emptyHint: '点击右上角按钮添加第一条记录',
-        strategyEmpty: '请设置初始总金额以查看策略详情',
+        strategyEmpty: '暂无长线策略，请先添加主流币',
+        strategyLevelsEmpty: '暂无价格档位',
         tokenColumn: '代币',
         platformColumn: '平台',
         startColumn: '开始日期',
         endColumn: '结束日期',
         daysLeftColumn: '剩余时间',
         actionColumn: '操作',
+        levelRatioColumn: '档位占比',
+        quantityColumn: '数量',
         detail: '详情',
         days: '天',
         expired: '已到期',
         today: '今天到期',
         delete: '删除',
+        confirmModalTitle: '删除确认',
         dateError: '结束日期必须晚于开始日期',
         dateRequiredError: '请选择开始日期和结束日期',
         confirmDelete: '确定要删除这条记录吗？',
-        setAmountFirst: '请先设置初始总金额',
+        confirmDeleteStrategy: '确定要删除这个代币策略吗？',
+        confirmDeleteLevel: '确定要删除这个价格档位吗？',
+        strategyDuplicateError: '该代币策略已存在',
+        strategySelectRequired: '请先选择一个主流币',
+        strategyCopyEmpty: '请先添加至少一个长线策略',
+        strategyLevelRatioExceeded: '同一方向的档位占比合计不能超过代币总占比',
+        strategyRatioTooSmall: '代币总占比不能低于买入档位占比合计',
+        strategyTotalRatioExceeded: '所有代币总占比不能超过 100%',
         copied: '已复制到剪贴板',
         copyFailed: '复制失败',
         strategyTitle: '策略说明',
         strategyConcept: '💡 核心概念',
         initialAmount: '初始总金额',
         ratio: '占比',
+        strategyRatioLabel: '代币占比',
         priceLevel: '价格档位',
         actionLabel: '操作',
-        allocationRatio: '仓位比例',
         amountUnit: '金额 (U)',
-        portfolioSummary: '占比 {ratio}% · 总仓位 {amount} U',
+        strategyLevelCount: '{count} 个档位',
+        strategyRatioSummary: '买入 {buy}% / 目标 {target}% · 卖出 {sell}% / 当前额度',
+        totalLabel: '总计',
+        buyTotalLabel: '买入',
+        sellTotalLabel: '卖出',
+        quantityPattern: '{quantity} {token}',
         strategyCase: '📊 实际案例',
-        example1: '初始 10,000U，BTC 占比 60%（即 6,000U）',
-        example2: '当 BTC 跌至 $65,000 时，买入 15%',
-        example3: '→ 买入：6,000U × 15% = 900U',
+        example1: '初始 10,000U，BTC 目标占比 60%',
+        example2: '当 BTC 跌至 $65,000 时，计划买入 900U',
+        example3: '→ 数量：900 ÷ 65,000 = 0.013846 BTC',
         buy: '买入',
         sell: '卖出',
         detailTitlePattern: '{token} - {platform} 详细说明',
@@ -259,7 +322,14 @@ const LANGUAGES = {
         addButton: 'Add Record',
         strategyButton: 'Strategy Info',
         totalAmountLabel: 'Initial Total Amount (U)',
-        totalAmountHint: 'Set it once to auto-calculate each level amount',
+        totalAmountHint: 'Set it to auto-calculate each level amount and quantity',
+        strategyTokenLabel: 'Mainstream Token',
+        currentPositionLabel: 'Current Position',
+        strategySelectPlaceholder: 'Select a token',
+        addStrategyButton: 'Add Strategy',
+        addLevelButton: 'Add Level',
+        deleteStrategyButton: 'Delete Strategy',
+        deleteLevelButton: 'Delete Level',
         copyTextButton: 'Copy as Text',
         copyMarkdownButton: 'Copy as Markdown',
         footerText: '© 2026 Crypto Tracker. Your data stays local and never uploads.',
@@ -297,37 +367,53 @@ const LANGUAGES = {
         closeButton: 'Close',
         emptyState: 'No fixed income records',
         emptyHint: 'Click the button above to add your first record',
-        strategyEmpty: 'Set the initial total amount to view strategy details',
+        strategyEmpty: 'No long-term strategy yet. Add a mainstream token first',
+        strategyLevelsEmpty: 'No price levels yet',
         tokenColumn: 'Token',
         platformColumn: 'Platform',
         startColumn: 'Start Date',
         endColumn: 'End Date',
         daysLeftColumn: 'Time Left',
         actionColumn: 'Action',
+        levelRatioColumn: 'Level Ratio',
+        quantityColumn: 'Quantity',
         detail: 'Details',
         days: 'days',
         expired: 'Expired',
         today: 'Due today',
         delete: 'Delete',
+        confirmModalTitle: 'Delete Confirmation',
         dateError: 'End date must be later than start date',
         dateRequiredError: 'Please select both start and end dates',
         confirmDelete: 'Are you sure you want to delete this record?',
-        setAmountFirst: 'Please set the initial total amount first',
+        confirmDeleteStrategy: 'Delete this token strategy?',
+        confirmDeleteLevel: 'Delete this price level?',
+        strategyDuplicateError: 'This token strategy already exists',
+        strategySelectRequired: 'Please select a mainstream token first',
+        strategyCopyEmpty: 'Add at least one long-term strategy first',
+        strategyLevelRatioExceeded: 'Combined level ratio for the same side cannot exceed the token allocation',
+        strategyRatioTooSmall: 'Token allocation cannot be lower than the total buy-side level ratio',
+        strategyTotalRatioExceeded: 'Total token allocation cannot exceed 100%',
         copied: 'Copied to clipboard',
         copyFailed: 'Copy failed',
         strategyTitle: 'Strategy Explanation',
         strategyConcept: '💡 Key Concepts',
         initialAmount: 'Initial Total Amount',
         ratio: 'Ratio',
+        strategyRatioLabel: 'Token Allocation',
         priceLevel: 'Price Level',
         actionLabel: 'Action',
-        allocationRatio: 'Position Ratio',
         amountUnit: 'Amount (U)',
-        portfolioSummary: 'Allocation {ratio}% · Total Position {amount} U',
+        strategyLevelCount: '{count} levels',
+        strategyRatioSummary: 'Buy {buy}% / Target {target}% · Sell {sell}% / Current Position',
+        totalLabel: 'Totals',
+        buyTotalLabel: 'Buy',
+        sellTotalLabel: 'Sell',
+        quantityPattern: '{quantity} {token}',
         strategyCase: '📊 Real Example',
-        example1: 'Initial 10,000U, BTC ratio 60% (i.e., 6,000U)',
-        example2: 'When BTC drops to $65,000, buy 15%',
-        example3: '→ Buy: 6,000U × 15% = 900U',
+        example1: 'Initial 10,000U, BTC target allocation 60%',
+        example2: 'When BTC drops to $65,000, plan to buy 900U',
+        example3: '→ Quantity: 900 ÷ 65,000 = 0.013846 BTC',
         buy: 'Buy',
         sell: 'Sell',
         detailTitlePattern: '{token} - {platform} Details',
@@ -349,6 +435,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     initToast();
     initFieldFeedback();
     initCustomPickers();
+    initStrategyEditor();
     await initializeRemoteSync();
     loadTotalAmount();
     updatePageText();
@@ -374,6 +461,7 @@ function updatePageText() {
     document.querySelector('.nav-logo').textContent = text.navLogo;
     document.querySelector('.hero-subtitle').textContent = text.heroSubtitle;
     updateStaticI18n(text);
+    updatePlatformChipLabels();
     updateSyncButton();
 
     const fixedIncomeSection = document.getElementById('fixed-income');
@@ -597,10 +685,12 @@ function applySnapshotToLocalStorage(snapshot) {
 }
 
 function normalizeSnapshot(snapshot = {}) {
+    const totalAmount = snapshot.totalAmount === undefined || snapshot.totalAmount === null ? '' : String(snapshot.totalAmount);
+
     return {
         fixedIncome: Array.isArray(snapshot.fixedIncome) ? snapshot.fixedIncome : [],
-        totalAmount: snapshot.totalAmount === undefined || snapshot.totalAmount === null ? '' : String(snapshot.totalAmount),
-        strategies: snapshot.strategies && typeof snapshot.strategies === 'object' ? snapshot.strategies : DEFAULT_STRATEGIES
+        totalAmount,
+        strategies: normalizeStrategies(snapshot.strategies, totalAmount)
     };
 }
 
@@ -1133,16 +1223,16 @@ function renderFixedIncomeTable(data) {
             </thead>
             <tbody>
                 ${data.map((item, index) => {
-                    const remainingMeta = calculateRemainingTime(item.endAt || item.endDate);
+                    const remainingMeta = calculateRemainingTime(getRecordDisplayValue(item, 'end'));
                     const daysClass = remainingMeta.days <= 7 ? 'danger' : remainingMeta.days <= 30 ? 'warning' : '';
 
                     return `
                         <tr>
                             <td><span class="table-token">${item.token}</span></td>
-                            <td><span class="table-platform">${item.platform}</span></td>
+                            <td><span class="table-platform">${formatPlatformDisplay(item.platform)}</span></td>
                             <td><span class="table-apy">${item.apy}%</span></td>
-                            <td>${formatDateTime(item.startAt || item.startDate)}</td>
-                            <td>${formatDateTime(item.endAt || item.endDate)}</td>
+                            <td>${formatDateTime(getRecordDisplayValue(item, 'start'))}</td>
+                            <td>${formatDateTime(getRecordDisplayValue(item, 'end'))}</td>
                             <td><span class="table-days ${daysClass}">${remainingMeta.label}</span></td>
                             <td>
                                 ${item.description ? `<button class="table-detail-btn" onclick="showDetail(${index})">${text.detail}</button>` : ''}
@@ -1216,7 +1306,9 @@ async function addFixedIncome(event) {
 }
 
 async function deleteFixedIncome(index) {
-    if (!confirm(LANGUAGES[currentLang].confirmDelete)) return;
+    if (!(await requestDeleteConfirmation(LANGUAGES[currentLang].confirmDelete))) {
+        return;
+    }
 
     const data = JSON.parse(localStorage.getItem(KEYS.FIXED_INCOME) || '[]');
     data.splice(index, 1);
@@ -1226,6 +1318,20 @@ async function deleteFixedIncome(index) {
 }
 
 // ===== 长线策略板块 =====
+
+function initStrategyEditor() {
+    const container = document.getElementById('strategyTables');
+    const addButton = document.getElementById('addStrategyButton');
+
+    if (container) {
+        container.addEventListener('change', handleStrategyEditorChange);
+        container.addEventListener('click', handleStrategyEditorAction);
+    }
+
+    if (addButton) {
+        addButton.addEventListener('click', addStrategyFromSelect);
+    }
+}
 
 function loadTotalAmount() {
     const amount = localStorage.getItem(KEYS.TOTAL_AMOUNT) || '';
@@ -1241,118 +1347,1034 @@ async function saveTotalAmount() {
 
 function getStrategies() {
     const saved = localStorage.getItem(KEYS.STRATEGIES);
-    return saved ? JSON.parse(saved) : DEFAULT_STRATEGIES;
+    const totalAmountValue = localStorage.getItem(KEYS.TOTAL_AMOUNT) || '';
+
+    try {
+        return normalizeStrategies(saved ? JSON.parse(saved) : null, totalAmountValue);
+    } catch {
+        return createDefaultStrategies(totalAmountValue);
+    }
 }
 
 function renderStrategies() {
-    const totalAmount = parseFloat(localStorage.getItem(KEYS.TOTAL_AMOUNT) || '0');
     const strategies = getStrategies();
     const container = document.getElementById('strategyTables');
     const text = LANGUAGES[currentLang];
 
-    if (totalAmount === 0) {
+    updateStrategyTokenSelect(strategies);
+
+    if (!strategies.length) {
         container.innerHTML = `<div class="empty-state"><p>${text.strategyEmpty}</p></div>`;
         return;
     }
 
-    let html = '';
-    for (const [key, strategy] of Object.entries(strategies)) {
-        const tokenAmount = totalAmount * strategy.ratio;
-        html += renderStrategyTable(strategy, tokenAmount);
-    }
-    container.innerHTML = html;
+    container.innerHTML = strategies.map(strategy => renderStrategyTable(strategy)).join('');
 }
 
-function renderStrategyTable(strategy, tokenAmount) {
+function renderStrategyTable(strategy) {
     const text = LANGUAGES[currentLang];
-    const rows = strategy.levels.map(level => {
-        const amount = (tokenAmount * level.ratio).toFixed(2);
-        const badgeClass = level.action === '买入' ? 'badge-buy' : 'badge-sell';
-        const actionLabel = level.action === '买入' ? text.buy : text.sell;
-
-        return `
-            <tr>
-                <td>$${level.price.toLocaleString()}</td>
-                <td><span class="badge ${badgeClass}">${actionLabel}</span></td>
-                <td>${(level.ratio * 100).toFixed(0)}%</td>
-                <td class="highlight-amount">${amount} U</td>
-            </tr>
-        `;
-    }).join('');
+    const summary = getStrategySummary(strategy);
+    const rows = strategy.levels.length
+        ? strategy.levels.map(level => renderStrategyLevelRow(strategy, level)).join('')
+        : `<tr><td colspan="6" class="strategy-table-empty">${text.strategyLevelsEmpty}</td></tr>`;
 
     return `
-        <div class="strategy-table-container">
-            <div class="strategy-header">
-                <div class="strategy-title">${strategy.name}</div>
-                <div class="strategy-subtitle">${formatText(text.portfolioSummary, {
-                    ratio: (strategy.ratio * 100).toFixed(0),
-                    amount: tokenAmount.toFixed(2)
-                })}</div>
+        <div class="strategy-table-container strategy-card">
+            <div class="strategy-header strategy-card-header">
+                <div class="strategy-card-heading">
+                    <div class="strategy-card-title">
+                        <div class="strategy-title">${strategy.token}</div>
+                        <div class="strategy-subtitle">${formatText(text.strategyRatioSummary, {
+                            buy: formatRatioDisplay(summary.buyRatio),
+                            sell: formatRatioDisplay(summary.sellRatio),
+                            target: formatRatioDisplay(strategy.ratio || 0)
+                        })}</div>
+                    </div>
+                    <div class="strategy-meta-controls">
+                        <div class="strategy-ratio-control">
+                            <label class="strategy-ratio-label">${text.strategyRatioLabel}</label>
+                            <div class="input-shell">
+                                <input
+                                    type="number"
+                                    min="0"
+                                    step="1"
+                                    class="strategy-field"
+                                    data-role="strategy-ratio"
+                                    data-strategy-id="${strategy.id}"
+                                    value="${formatWholeNumberInputValue(strategy.ratio)}"
+                                >
+                                <span class="input-suffix">%</span>
+                            </div>
+                        </div>
+                        <div class="strategy-ratio-control">
+                            <label class="strategy-ratio-label">${text.currentPositionLabel}</label>
+                            <div class="input-shell">
+                                <input
+                                    type="number"
+                                    min="0"
+                                    step="0.00000001"
+                                    class="strategy-field"
+                                    data-role="strategy-current-quantity"
+                                    data-strategy-id="${strategy.id}"
+                                    value="${formatStrategyInputValue(strategy.currentQuantity)}"
+                                >
+                                <span class="input-suffix">${strategy.token}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <button
+                    type="button"
+                    class="table-delete-btn strategy-delete-btn"
+                    data-action="delete-strategy"
+                    data-strategy-id="${strategy.id}"
+                >${text.deleteStrategyButton}</button>
             </div>
             <table class="strategy-table">
                 <thead>
                     <tr>
                         <th>${text.priceLevel}</th>
                         <th>${text.actionLabel}</th>
-                        <th>${text.allocationRatio}</th>
+                        <th>${text.levelRatioColumn}</th>
                         <th>${text.amountUnit}</th>
+                        <th>${text.quantityColumn}</th>
+                        <th>${text.actionColumn}</th>
                     </tr>
                 </thead>
                 <tbody>${rows}</tbody>
+                <tfoot>${renderStrategyTotalsRow(strategy, summary)}</tfoot>
             </table>
         </div>
     `;
 }
 
-function copyStrategy(format) {
-    const totalAmount = parseFloat(localStorage.getItem(KEYS.TOTAL_AMOUNT) || '0');
-    const strategies = getStrategies();
+function renderStrategyLevelRow(strategy, level) {
+    const text = LANGUAGES[currentLang];
+    const amount = getStrategyLevelAmount(level, strategy);
+    const quantity = getStrategyLevelQuantity(level, strategy);
+
+    return `
+        <tr>
+            <td>
+                <input
+                    type="number"
+                    min="0"
+                    step="0.00000001"
+                    class="strategy-field"
+                    data-role="level-price"
+                    data-strategy-id="${strategy.id}"
+                    data-level-id="${level.id}"
+                    value="${formatStrategyInputValue(level.price)}"
+                    placeholder="65000"
+                >
+            </td>
+            <td>
+                <select
+                    class="strategy-field strategy-field-select"
+                    data-role="level-action"
+                    data-strategy-id="${strategy.id}"
+                    data-level-id="${level.id}"
+                >
+                    <option value="buy" ${level.action === 'buy' ? 'selected' : ''}>${text.buy}</option>
+                    <option value="sell" ${level.action === 'sell' ? 'selected' : ''}>${text.sell}</option>
+                </select>
+            </td>
+            <td>
+                <div class="input-shell">
+                    <input
+                        type="number"
+                        min="0"
+                        step="1"
+                        class="strategy-field"
+                        data-role="level-ratio"
+                        data-strategy-id="${strategy.id}"
+                        data-level-id="${level.id}"
+                        value="${formatWholeNumberInputValue(level.ratio)}"
+                        placeholder="9"
+                    >
+                    <span class="input-suffix">%</span>
+                </div>
+            </td>
+            <td><span class="strategy-amount">${formatStrategyAmount(amount)}</span></td>
+            <td><span class="strategy-quantity">${formatStrategyQuantity(amount, level.price, strategy.token, quantity)}</span></td>
+            <td>
+                <button
+                    type="button"
+                    class="table-delete-btn strategy-row-delete"
+                    data-action="delete-level"
+                    data-strategy-id="${strategy.id}"
+                    data-level-id="${level.id}"
+                >${text.deleteLevelButton}</button>
+            </td>
+        </tr>
+    `;
+}
+
+function renderStrategyTotalsRow(strategy, summary) {
     const text = LANGUAGES[currentLang];
 
-    if (totalAmount === 0) {
-        showToast(text.setAmountFirst, 'error');
+    return `
+        <tr class="strategy-total-row">
+            <td colspan="3" class="strategy-total-label-cell">${text.totalLabel}</td>
+            <td class="strategy-total-cell">
+                <div class="strategy-total-line">
+                    <span class="strategy-total-label">${text.buyTotalLabel}</span>
+                    <span class="strategy-total-value">${formatStrategyAmount(summary.buyAmount)}</span>
+                </div>
+                <div class="strategy-total-line">
+                    <span class="strategy-total-label">${text.sellTotalLabel}</span>
+                    <span class="strategy-total-value">${formatStrategyAmount(summary.sellAmount)}</span>
+                </div>
+            </td>
+            <td class="strategy-total-cell">
+                <div class="strategy-total-line">
+                    <span class="strategy-total-label">${text.buyTotalLabel}</span>
+                    <span class="strategy-total-value">${formatStrategyQuantity(summary.buyAmount, summary.buyAveragePrice, strategy.token, summary.buyQuantity)}</span>
+                </div>
+                <div class="strategy-total-line">
+                    <span class="strategy-total-label">${text.sellTotalLabel}</span>
+                    <span class="strategy-total-value">${formatStrategyQuantity(summary.sellAmount, summary.sellAveragePrice, strategy.token, summary.sellQuantity)}</span>
+                </div>
+            </td>
+            <td class="strategy-total-action-cell">
+                <button
+                    type="button"
+                    class="apple-button apple-button-secondary strategy-inline-button"
+                    data-action="add-level"
+                    data-strategy-id="${strategy.id}"
+                >${text.addLevelButton}</button>
+            </td>
+        </tr>
+    `;
+}
+
+function copyStrategy(format) {
+    const strategies = getStrategies();
+    const totalAmount = localStorage.getItem(KEYS.TOTAL_AMOUNT) || '';
+    const text = LANGUAGES[currentLang];
+
+    if (!strategies.length) {
+        showToast(text.strategyCopyEmpty, 'error');
         return;
     }
 
+    const titleLine = totalAmount
+        ? `${text.strategySectionTitle} (${text.totalAmountLabel}: ${formatCopyNumber(totalAmount)} U)`
+        : text.strategySectionTitle;
     let content = '';
+
     if (format === 'markdown') {
-        content = `# ${text.strategySectionTitle} (${text.totalAmountLabel}: ${totalAmount} U)\n\n`;
-        for (const [key, strategy] of Object.entries(strategies)) {
-            const tokenAmount = (totalAmount * strategy.ratio).toFixed(2);
-            content += `## ${strategy.name} - ${formatText(text.portfolioSummary, {
-                ratio: (strategy.ratio * 100).toFixed(0),
-                amount: tokenAmount
+        content = `# ${titleLine}\n\n`;
+        strategies.forEach(strategy => {
+            const summary = getStrategySummary(strategy);
+            content += `## ${strategy.token} · ${text.strategyRatioLabel} ${formatCopyNumber(strategy.ratio || 0)}%\n\n`;
+            content += `${formatText(text.strategyRatioSummary, {
+                buy: formatRatioDisplay(summary.buyRatio),
+                sell: formatRatioDisplay(summary.sellRatio),
+                target: formatRatioDisplay(strategy.ratio || 0)
             })}\n\n`;
-            content += `| ${text.priceLevel} | ${text.actionLabel} | ${text.allocationRatio} | ${text.amountUnit} |\n`;
-            content += '|------|------|----------|----------|\n';
-            for (const level of strategy.levels) {
-                const amount = (tokenAmount * level.ratio).toFixed(2);
-                const actionLabel = level.action === '买入' ? text.buy : text.sell;
-                content += `| $${level.price.toLocaleString()} | ${actionLabel} | ${(level.ratio * 100).toFixed(0)}% | ${amount} U |\n`;
+            content += `| ${text.priceLevel} | ${text.actionLabel} | ${text.levelRatioColumn} | ${text.amountUnit} | ${text.quantityColumn} |\n`;
+            content += '|------|------|------|------|------|\n';
+
+            const levels = getStrategyLevelsForExport(strategy);
+            if (!levels.length) {
+                content += '| - | - | - | - | - |\n\n';
+                return;
             }
+
+            levels.forEach(level => {
+                const amount = getStrategyLevelAmount(level, strategy);
+                const quantity = getStrategyLevelQuantity(level, strategy);
+                content += `| ${formatStrategyPrice(level.price)} | ${formatStrategyActionLabel(level.action)} | ${formatRatioDisplay(level.ratio)}% | ${formatStrategyAmount(amount)} | ${formatStrategyQuantity(amount, level.price, strategy.token, quantity)} |\n`;
+            });
+            content += `| ${text.totalLabel} | - | - | ${text.buyTotalLabel} ${formatStrategyAmount(summary.buyAmount)} / ${text.sellTotalLabel} ${formatStrategyAmount(summary.sellAmount)} | ${text.buyTotalLabel} ${formatStrategyQuantity(summary.buyAmount, summary.buyAveragePrice, strategy.token, summary.buyQuantity)} / ${text.sellTotalLabel} ${formatStrategyQuantity(summary.sellAmount, summary.sellAveragePrice, strategy.token, summary.sellQuantity)} |\n`;
             content += '\n';
-        }
+        });
     } else {
-        content = `${text.strategySectionTitle} (${text.totalAmountLabel}: ${totalAmount} U)\n\n`;
-        for (const [key, strategy] of Object.entries(strategies)) {
-            const tokenAmount = (totalAmount * strategy.ratio).toFixed(2);
-            content += `${strategy.name} - ${formatText(text.portfolioSummary, {
-                ratio: (strategy.ratio * 100).toFixed(0),
-                amount: tokenAmount
+        content = `${titleLine}\n\n`;
+        strategies.forEach(strategy => {
+            const summary = getStrategySummary(strategy);
+            content += `${strategy.token} · ${text.strategyRatioLabel} ${formatCopyNumber(strategy.ratio || 0)}%\n`;
+            content += `${formatText(text.strategyRatioSummary, {
+                buy: formatRatioDisplay(summary.buyRatio),
+                sell: formatRatioDisplay(summary.sellRatio),
+                target: formatRatioDisplay(strategy.ratio || 0)
             })}\n`;
-            for (const level of strategy.levels) {
-                const amount = (tokenAmount * level.ratio).toFixed(2);
-                const actionLabel = level.action === '买入' ? text.buy : text.sell;
-                content += `  $${level.price.toLocaleString()} - ${actionLabel} ${(level.ratio * 100).toFixed(0)}% = ${amount} U\n`;
+
+            const levels = getStrategyLevelsForExport(strategy);
+            if (!levels.length) {
+                content += `  - ${text.strategyLevelsEmpty}\n\n`;
+                return;
             }
+
+            for (const level of levels) {
+                const amount = getStrategyLevelAmount(level, strategy);
+                const quantity = getStrategyLevelQuantity(level, strategy);
+                content += `  ${formatStrategyPrice(level.price)} - ${formatStrategyActionLabel(level.action)} - ${formatRatioDisplay(level.ratio)}% - ${formatStrategyAmount(amount)} - ${formatStrategyQuantity(amount, level.price, strategy.token, quantity)}\n`;
+            }
+            content += `  ${text.totalLabel}: ${text.buyTotalLabel} ${formatStrategyAmount(summary.buyAmount)} / ${text.sellTotalLabel} ${formatStrategyAmount(summary.sellAmount)}\n`;
+            content += `  ${text.quantityColumn}: ${text.buyTotalLabel} ${formatStrategyQuantity(summary.buyAmount, summary.buyAveragePrice, strategy.token, summary.buyQuantity)} / ${text.sellTotalLabel} ${formatStrategyQuantity(summary.sellAmount, summary.sellAveragePrice, strategy.token, summary.sellQuantity)}\n`;
             content += '\n';
-        }
+        });
     }
 
     navigator.clipboard.writeText(content).then(() => {
         showToast(text.copied, 'success');
     }).catch(() => {
         showToast(text.copyFailed, 'error');
+    });
+}
+
+function normalizeStrategies(rawStrategies, totalAmountValue = '') {
+    if (Array.isArray(rawStrategies)) {
+        return sortStrategiesByRatio(rawStrategies
+            .map((strategy, index) => normalizeStrategyItem(strategy, index, totalAmountValue))
+            .filter(Boolean));
+    }
+
+    if (rawStrategies && typeof rawStrategies === 'object') {
+        const normalized = sortStrategiesByRatio(Object.values(rawStrategies)
+            .map((strategy, index) => normalizeStrategyItem(strategy, index, totalAmountValue))
+            .filter(Boolean));
+
+        return normalized.length ? normalized : createDefaultStrategies(totalAmountValue);
+    }
+
+    return createDefaultStrategies(totalAmountValue);
+}
+
+function sortStrategiesByRatio(strategies = []) {
+    return strategies
+        .map((strategy, index) => ({ strategy, index }))
+        .sort((left, right) => {
+            const leftRatio = Number.parseFloat(left.strategy.ratio);
+            const rightRatio = Number.parseFloat(right.strategy.ratio);
+            const safeLeftRatio = Number.isFinite(leftRatio) ? leftRatio : -1;
+            const safeRightRatio = Number.isFinite(rightRatio) ? rightRatio : -1;
+
+            if (safeRightRatio !== safeLeftRatio) {
+                return safeRightRatio - safeLeftRatio;
+            }
+
+            return left.index - right.index;
+        })
+        .map(item => item.strategy);
+}
+
+function normalizeStrategyItem(strategy, index, totalAmountValue) {
+    if (!strategy || typeof strategy !== 'object') {
+        return null;
+    }
+
+    const token = String(strategy.token || strategy.name || MAINSTREAM_TOKENS[index] || '')
+        .trim()
+        .toUpperCase();
+
+    if (!token) {
+        return null;
+    }
+
+    const strategyId = strategy.id || generateId(`strategy_${token.toLowerCase()}`);
+    const rawLevels = Array.isArray(strategy.levels) ? strategy.levels : [];
+    const isLegacyObject = !('token' in strategy);
+    const ratio = isLegacyObject
+        ? normalizeLegacyPercent(strategy.ratio)
+        : normalizeWholeNumber(strategy.ratio);
+    const totalCapital = getStrategySeedCapital(totalAmountValue);
+    const levels = rawLevels
+        .map((level, levelIndex) => normalizeStrategyLevel(level, {
+            strategyId,
+            strategyRatio: Number(ratio) || 0,
+            totalCapital,
+            index: levelIndex,
+            legacyObject: isLegacyObject
+        }))
+        .filter(Boolean);
+
+    return {
+        id: strategyId,
+        token,
+        ratio,
+        currentQuantity: normalizeEditableNumber(strategy.currentQuantity, 8),
+        levels
+    };
+}
+
+function normalizeStrategyLevel(level, options) {
+    if (!level || typeof level !== 'object') {
+        return null;
+    }
+
+    let ratio = '';
+
+    if (level.ratio !== undefined && level.ratio !== null && level.ratio !== '') {
+        ratio = options.legacyObject
+            ? normalizeLegacyLevelRatio(level, options.strategyRatio)
+            : normalizeWholeNumber(level.ratio);
+    } else if (level.amount !== undefined && level.amount !== null && level.amount !== '') {
+        const amount = normalizeEditableNumber(level.amount, 2);
+        if (amount !== '' && options.totalCapital > 0) {
+            ratio = normalizeWholeNumber((Number(amount) / options.totalCapital) * 100);
+        }
+    }
+
+    return {
+        id: level.id || `${options.strategyId}_level_${options.index + 1}`,
+        price: normalizeEditableNumber(level.price, 8),
+        action: normalizeStrategyAction(level.action),
+        ratio
+    };
+}
+
+function createDefaultStrategies(totalAmountValue = '') {
+    return ['BTC', 'ETH', 'BNB'].map(token => createStrategyForToken(token, totalAmountValue));
+}
+
+function createStrategyForToken(token, totalAmountValue = '') {
+    const blueprint = DEFAULT_STRATEGY_BLUEPRINTS[token];
+
+    if (!blueprint) {
+        return createBlankStrategy(token);
+    }
+
+    const strategyId = generateId(`strategy_${token.toLowerCase()}`);
+
+    return {
+        id: strategyId,
+        token,
+        ratio: blueprint.ratio,
+        currentQuantity: '',
+        levels: blueprint.levels.map((level, index) => ({
+            id: `${strategyId}_level_${index + 1}`,
+            price: level.price,
+            action: level.action,
+            ratio: level.ratio
+        }))
+    };
+}
+
+function createBlankStrategy(token = '') {
+    const normalizedToken = String(token || '').trim().toUpperCase();
+    const strategyId = generateId(`strategy_${(normalizedToken || 'token').toLowerCase()}`);
+
+    return {
+        id: strategyId,
+        token: normalizedToken,
+        ratio: '',
+        currentQuantity: '',
+        levels: [createBlankLevel(strategyId)]
+    };
+}
+
+function createBlankLevel(strategyId) {
+    return {
+        id: `${strategyId}_${generateId('level')}`,
+        price: '',
+        action: 'buy',
+        ratio: ''
+    };
+}
+
+function getStrategySeedCapital(totalAmountValue = '') {
+    const amount = Number.parseFloat(totalAmountValue);
+
+    if (Number.isFinite(amount) && amount > 0) {
+        return amount;
+    }
+
+    return DEFAULT_STRATEGY_SEED_AMOUNT;
+}
+
+function normalizeLegacyPercent(value) {
+    if (value === '' || value === null || value === undefined) {
+        return '';
+    }
+
+    const numericValue = Number.parseFloat(value);
+
+    if (!Number.isFinite(numericValue)) {
+        return '';
+    }
+
+    if (numericValue <= 1) {
+        return roundNumber(numericValue * 100, 2);
+    }
+
+    return roundNumber(numericValue, 2);
+}
+
+function normalizeWholeNumber(value) {
+    if (value === '' || value === null || value === undefined) {
+        return '';
+    }
+
+    const numericValue = Number.parseFloat(value);
+
+    if (!Number.isFinite(numericValue) || numericValue < 0) {
+        return '';
+    }
+
+    return Math.round(numericValue);
+}
+
+function normalizeLegacyLevelRatio(level, strategyRatio) {
+    const rawRatio = normalizeLegacyPercent(level.ratio);
+    const normalizedAction = normalizeStrategyAction(level.action);
+
+    if (rawRatio === '') {
+        return '';
+    }
+
+    if (normalizedAction === 'sell') {
+        return normalizeWholeNumber(rawRatio);
+    }
+
+    return normalizeWholeNumber((strategyRatio * (Number(rawRatio) || 0)) / 100);
+}
+
+function normalizeEditableNumber(value, decimals = 2) {
+    if (value === '' || value === null || value === undefined) {
+        return '';
+    }
+
+    const numericValue = Number.parseFloat(value);
+
+    if (!Number.isFinite(numericValue) || numericValue < 0) {
+        return '';
+    }
+
+    return roundNumber(numericValue, decimals);
+}
+
+function normalizeStrategyAction(action) {
+    if (action === 'sell' || action === 'Sell' || action === '卖出') {
+        return 'sell';
+    }
+
+    return 'buy';
+}
+
+function roundNumber(value, decimals = 2) {
+    const factor = 10 ** decimals;
+    return Math.round((value + Number.EPSILON) * factor) / factor;
+}
+
+function generateId(prefix = 'id') {
+    return `${prefix}_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
+}
+
+async function saveStrategies(strategies) {
+    const normalized = normalizeStrategies(strategies, localStorage.getItem(KEYS.TOTAL_AMOUNT) || '');
+    localStorage.setItem(KEYS.STRATEGIES, JSON.stringify(normalized));
+    renderStrategies();
+    await syncStateToRemote();
+}
+
+async function handleStrategyEditorChange(event) {
+    const target = event.target;
+
+    if (!target || !target.hasAttribute('data-role')) {
+        return;
+    }
+
+    const strategyId = target.getAttribute('data-strategy-id');
+    const strategies = getStrategies();
+    const strategy = strategies.find(item => item.id === strategyId);
+
+    if (!strategy) {
+        return;
+    }
+
+    switch (target.getAttribute('data-role')) {
+        case 'strategy-ratio': {
+            const nextRatio = normalizeWholeNumber(target.value);
+            const requiredRatio = getStrategyRequiredRatio(strategy);
+            const maxRatio = getRemainingStrategyRatio(strategies, strategy.id);
+
+            if (nextRatio === '') {
+                strategy.ratio = requiredRatio ? roundNumber(requiredRatio, 2) : '';
+                if (requiredRatio) {
+                    showToast(LANGUAGES[currentLang].strategyRatioTooSmall, 'error');
+                }
+                break;
+            }
+
+            if (Number(nextRatio) < requiredRatio) {
+                strategy.ratio = roundNumber(requiredRatio, 2);
+                showToast(LANGUAGES[currentLang].strategyRatioTooSmall, 'error');
+                break;
+            }
+
+            if (Number(nextRatio) > maxRatio) {
+                strategy.ratio = Math.max(requiredRatio, maxRatio);
+                showToast(LANGUAGES[currentLang].strategyTotalRatioExceeded, 'error');
+                break;
+            }
+
+            strategy.ratio = nextRatio;
+            break;
+        }
+        case 'strategy-current-quantity':
+            strategy.currentQuantity = normalizeEditableNumber(target.value, 8);
+            break;
+        case 'level-price':
+        case 'level-ratio': {
+            const level = strategy.levels.find(item => item.id === target.getAttribute('data-level-id'));
+            if (!level) {
+                return;
+            }
+
+            if (target.getAttribute('data-role') === 'level-price') {
+                level.price = normalizeEditableNumber(target.value, 8);
+                break;
+            }
+
+            const nextRatio = normalizeWholeNumber(target.value);
+
+            if (
+                normalizeStrategyAction(level.action) === 'buy' &&
+                (strategy.ratio === '' || strategy.ratio === null || strategy.ratio === undefined) &&
+                nextRatio !== ''
+            ) {
+                const maxRatio = getRemainingStrategyRatio(strategies, strategy.id);
+                strategy.ratio = Math.min(nextRatio, maxRatio);
+
+                if (nextRatio > maxRatio) {
+                    showToast(LANGUAGES[currentLang].strategyTotalRatioExceeded, 'error');
+                }
+            }
+
+            const cappedRatio = capLevelRatioByStrategy(strategy, level.id, level.action, nextRatio);
+            level.ratio = cappedRatio.value;
+
+            if (cappedRatio.capped) {
+                showToast(LANGUAGES[currentLang].strategyLevelRatioExceeded, 'error');
+            }
+            break;
+        }
+        case 'level-action': {
+            const level = strategy.levels.find(item => item.id === target.getAttribute('data-level-id'));
+            if (!level) {
+                return;
+            }
+
+            level.action = normalizeStrategyAction(target.value);
+            const cappedRatio = capLevelRatioByStrategy(strategy, level.id, level.action, level.ratio);
+            level.ratio = cappedRatio.value;
+
+            if (cappedRatio.capped) {
+                showToast(LANGUAGES[currentLang].strategyLevelRatioExceeded, 'error');
+            }
+            break;
+        }
+        default:
+            return;
+    }
+
+    await saveStrategies(strategies);
+}
+
+async function handleStrategyEditorAction(event) {
+    const button = event.target.closest('button[data-action]');
+
+    if (!button) {
+        return;
+    }
+
+    const action = button.getAttribute('data-action');
+    const strategyId = button.getAttribute('data-strategy-id');
+    const levelId = button.getAttribute('data-level-id');
+
+    if (action === 'delete-strategy') {
+        await deleteStrategy(strategyId);
+    }
+
+    if (action === 'add-level') {
+        await addStrategyLevel(strategyId);
+    }
+
+    if (action === 'delete-level') {
+        await deleteStrategyLevel(strategyId, levelId);
+    }
+}
+
+async function addStrategyFromSelect() {
+    const select = document.getElementById('strategyTokenSelect');
+    const token = select ? select.value : '';
+    const text = LANGUAGES[currentLang];
+
+    if (!token) {
+        showToast(text.strategySelectRequired, 'error');
+        return;
+    }
+
+    const strategies = getStrategies();
+    if (strategies.some(strategy => strategy.token === token)) {
+        showToast(text.strategyDuplicateError, 'error');
+        return;
+    }
+
+    const strategy = createStrategyForToken(token, localStorage.getItem(KEYS.TOTAL_AMOUNT) || '');
+    const remainingRatio = getRemainingStrategyRatio(strategies);
+
+    if (strategy.ratio !== '') {
+        const defaultRatio = Number(strategy.ratio) || 0;
+        const cappedRatio = Math.min(Number(strategy.ratio), remainingRatio);
+        strategy.ratio = cappedRatio > 0 ? cappedRatio : '';
+        fitBuyLevelsToStrategyRatio(strategy);
+
+        if (Number(strategy.ratio || 0) < defaultRatio) {
+            showToast(text.strategyTotalRatioExceeded, 'error');
+        }
+    }
+
+    strategies.push(strategy);
+    await saveStrategies(strategies);
+}
+
+async function deleteStrategy(strategyId) {
+    if (!(await requestDeleteConfirmation(LANGUAGES[currentLang].confirmDeleteStrategy))) {
+        return;
+    }
+
+    await saveStrategies(getStrategies().filter(strategy => strategy.id !== strategyId));
+}
+
+async function addStrategyLevel(strategyId) {
+    const strategies = getStrategies();
+    const strategy = strategies.find(item => item.id === strategyId);
+
+    if (!strategy) {
+        return;
+    }
+
+    strategy.levels.push(createBlankLevel(strategyId));
+    await saveStrategies(strategies);
+}
+
+async function deleteStrategyLevel(strategyId, levelId) {
+    if (!(await requestDeleteConfirmation(LANGUAGES[currentLang].confirmDeleteLevel))) {
+        return;
+    }
+
+    const strategies = getStrategies();
+    const strategy = strategies.find(item => item.id === strategyId);
+
+    if (!strategy) {
+        return;
+    }
+
+    strategy.levels = strategy.levels.filter(level => level.id !== levelId);
+    await saveStrategies(strategies);
+}
+
+function updateStrategyTokenSelect(strategies) {
+    const select = document.getElementById('strategyTokenSelect');
+    const addButton = document.getElementById('addStrategyButton');
+
+    if (!select) {
+        return;
+    }
+
+    const text = LANGUAGES[currentLang];
+    const usedTokens = new Set((strategies || []).map(strategy => strategy.token));
+    const availableTokens = MAINSTREAM_TOKENS.filter(token => !usedTokens.has(token));
+
+    select.innerHTML = `
+        <option value="">${text.strategySelectPlaceholder}</option>
+        ${availableTokens.map(token => `<option value="${token}">${token}</option>`).join('')}
+    `;
+
+    const noAvailableTokens = availableTokens.length === 0;
+    select.disabled = noAvailableTokens;
+
+    if (addButton) {
+        addButton.disabled = noAvailableTokens;
+    }
+}
+
+function getTotalStrategyRatio(strategies, excludeStrategyId = '') {
+    return roundNumber((strategies || []).reduce((sum, strategy) => {
+        if (excludeStrategyId && strategy.id === excludeStrategyId) {
+            return sum;
+        }
+
+        return sum + (Number.parseFloat(strategy.ratio) || 0);
+    }, 0), 2);
+}
+
+function getRemainingStrategyRatio(strategies, excludeStrategyId = '') {
+    return Math.max(100 - getTotalStrategyRatio(strategies, excludeStrategyId), 0);
+}
+
+function fitBuyLevelsToStrategyRatio(strategy) {
+    let remaining = Number.parseFloat(strategy.ratio) || 0;
+
+    strategy.levels = strategy.levels.map(level => {
+        if (normalizeStrategyAction(level.action) !== 'buy') {
+            return level;
+        }
+
+        const nextRatio = Math.min(Number.parseFloat(level.ratio) || 0, remaining);
+        remaining = Math.max(remaining - nextRatio, 0);
+
+        return {
+            ...level,
+            ratio: nextRatio > 0 ? Math.round(nextRatio) : ''
+        };
+    });
+}
+
+function formatStrategyInputValue(value) {
+    if (value === '' || value === null || value === undefined) {
+        return '';
+    }
+
+    return new Intl.NumberFormat('en-US', {
+        useGrouping: false,
+        maximumFractionDigits: 8
+    }).format(Number(value));
+}
+
+function formatWholeNumberInputValue(value) {
+    if (value === '' || value === null || value === undefined) {
+        return '';
+    }
+
+    const numericValue = Number(value);
+    if (!Number.isFinite(numericValue)) {
+        return '';
+    }
+
+    return String(Math.round(numericValue));
+}
+
+function getStrategyRequiredRatio(strategy) {
+    const summary = getStrategySummary(strategy);
+    return summary.buyRatio;
+}
+
+function capLevelRatioByStrategy(strategy, levelId, action, nextRatio) {
+    if (nextRatio === '') {
+        return { value: '', capped: false };
+    }
+
+    const strategyRatio = Number.parseFloat(strategy.ratio);
+    const targetRatio = Number.parseFloat(nextRatio);
+
+    if (!Number.isFinite(targetRatio)) {
+        return { value: '', capped: false };
+    }
+
+    const sideRatioUsed = strategy.levels
+        .filter(level => level.id !== levelId && normalizeStrategyAction(level.action) === action)
+        .reduce((sum, level) => sum + (Number.parseFloat(level.ratio) || 0), 0);
+    const allowedTotal = action === 'sell'
+        ? 100
+        : Number.isFinite(strategyRatio) ? strategyRatio : 0;
+    const maxAvailable = Math.max(allowedTotal - sideRatioUsed, 0);
+
+    return {
+        value: Math.round(Math.min(targetRatio, maxAvailable)),
+        capped: targetRatio > maxAvailable + Number.EPSILON
+    };
+}
+
+function getTotalAmountNumber() {
+    const amount = Number.parseFloat(localStorage.getItem(KEYS.TOTAL_AMOUNT) || '');
+    return Number.isFinite(amount) && amount > 0 ? amount : null;
+}
+
+function getStrategyLevelAmount(level, strategy) {
+    if (!level || !strategy) {
+        return null;
+    }
+
+    const totalAmount = getTotalAmountNumber();
+    const numericRatio = Number.parseFloat(level.ratio);
+
+    if (!Number.isFinite(numericRatio) || numericRatio <= 0) {
+        return null;
+    }
+
+    if (normalizeStrategyAction(level.action) === 'sell') {
+        const currentQuantity = Number.parseFloat(strategy.currentQuantity);
+        const price = Number.parseFloat(level.price);
+
+        if (!Number.isFinite(currentQuantity) || currentQuantity <= 0 || !Number.isFinite(price) || price <= 0) {
+            return null;
+        }
+
+        return roundNumber(currentQuantity * (numericRatio / 100) * price, 2);
+    }
+
+    if (!totalAmount) {
+        return null;
+    }
+
+    return roundNumber(totalAmount * (numericRatio / 100), 2);
+}
+
+function getStrategyLevelQuantity(level, strategy) {
+    if (!level || !strategy) {
+        return null;
+    }
+
+    const numericRatio = Number.parseFloat(level.ratio);
+
+    if (!Number.isFinite(numericRatio) || numericRatio <= 0) {
+        return null;
+    }
+
+    if (normalizeStrategyAction(level.action) === 'sell') {
+        const currentQuantity = Number.parseFloat(strategy.currentQuantity);
+
+        if (!Number.isFinite(currentQuantity) || currentQuantity <= 0) {
+            return null;
+        }
+
+        return currentQuantity * (numericRatio / 100);
+    }
+
+    return getStrategyQuantity(getStrategyLevelAmount(level, strategy), level.price);
+}
+
+function getStrategySummary(strategy) {
+    const hasTotalAmount = getTotalAmountNumber() !== null;
+    const hasCurrentQuantity = Number.isFinite(Number.parseFloat(strategy.currentQuantity)) && Number.parseFloat(strategy.currentQuantity) > 0;
+    const summary = {
+        buyRatio: 0,
+        sellRatio: 0,
+        buyAmount: hasTotalAmount ? 0 : null,
+        sellAmount: hasCurrentQuantity ? 0 : null,
+        buyQuantity: null,
+        sellQuantity: null,
+        buyAveragePrice: null,
+        sellAveragePrice: null
+    };
+
+    let buyQuantity = 0;
+    let sellQuantity = 0;
+    let buyAmount = 0;
+    let sellAmount = 0;
+
+    strategy.levels.forEach(level => {
+        const side = normalizeStrategyAction(level.action);
+        const ratio = Number.parseFloat(level.ratio) || 0;
+        const amount = getStrategyLevelAmount(level, strategy);
+        const quantity = getStrategyLevelQuantity(level, strategy);
+
+        if (side === 'sell') {
+            summary.sellRatio = roundNumber(summary.sellRatio + ratio, 2);
+            if (amount !== null) {
+                summary.sellAmount = roundNumber((summary.sellAmount || 0) + amount, 2);
+                sellAmount += amount;
+            }
+            if (quantity !== null) {
+                sellQuantity += quantity;
+            }
+            return;
+        }
+
+        summary.buyRatio = roundNumber(summary.buyRatio + ratio, 2);
+        if (amount !== null) {
+            summary.buyAmount = roundNumber((summary.buyAmount || 0) + amount, 2);
+            buyAmount += amount;
+        }
+        if (quantity !== null) {
+            buyQuantity += quantity;
+        }
+    });
+
+    summary.buyQuantity = buyQuantity > 0 ? buyQuantity : null;
+    summary.sellQuantity = sellQuantity > 0 ? sellQuantity : null;
+    summary.buyAveragePrice = buyQuantity > 0 ? buyAmount / buyQuantity : null;
+    summary.sellAveragePrice = sellQuantity > 0 ? sellAmount / sellQuantity : null;
+
+    return summary;
+}
+
+function getStrategyQuantity(amount, price) {
+    const numericAmount = Number.parseFloat(amount);
+    const numericPrice = Number.parseFloat(price);
+
+    if (!Number.isFinite(numericAmount) || !Number.isFinite(numericPrice) || numericAmount <= 0 || numericPrice <= 0) {
+        return null;
+    }
+
+    return numericAmount / numericPrice;
+}
+
+function formatStrategyQuantity(amount, price, token, explicitQuantity = null) {
+    const quantity = explicitQuantity ?? getStrategyQuantity(amount, price);
+
+    if (quantity === null) {
+        return '--';
+    }
+
+    return formatText(LANGUAGES[currentLang].quantityPattern, {
+        quantity: formatAdaptiveQuantity(quantity),
+        token
+    });
+}
+
+function formatAdaptiveQuantity(quantity) {
+    let precision = 8;
+
+    if (quantity >= 1000) {
+        precision = 2;
+    } else if (quantity >= 100) {
+        precision = 3;
+    } else if (quantity >= 1) {
+        precision = 4;
+    } else if (quantity >= 0.01) {
+        precision = 6;
+    }
+
+    return trimTrailingZeros(quantity.toFixed(precision));
+}
+
+function trimTrailingZeros(value) {
+    return String(value).replace(/(\.\d*?[1-9])0+$/u, '$1').replace(/\.0+$/u, '').replace(/\.$/u, '');
+}
+
+function getStrategyLevelsForExport(strategy) {
+    return strategy.levels.filter(level => level.price !== '' || level.ratio !== '');
+}
+
+function formatStrategyActionLabel(action) {
+    return normalizeStrategyAction(action) === 'sell' ? LANGUAGES[currentLang].sell : LANGUAGES[currentLang].buy;
+}
+
+function formatStrategyAmount(amount) {
+    if (amount === '' || amount === null || amount === undefined || !Number.isFinite(Number(amount))) {
+        return '-';
+    }
+
+    return `${formatCopyNumber(amount)} U`;
+}
+
+function formatRatioDisplay(value) {
+    if (value === '' || value === null || value === undefined || !Number.isFinite(Number(value))) {
+        return '0';
+    }
+
+    return String(Math.round(Number(value)));
+}
+
+function formatStrategyPrice(price) {
+    if (price === '' || price === null || price === undefined) {
+        return '-';
+    }
+
+    return `$${Number(price).toLocaleString('en-US', {
+        maximumFractionDigits: 8
+    })}`;
+}
+
+function formatCopyNumber(value) {
+    return Number(value).toLocaleString('en-US', {
+        maximumFractionDigits: 8
     });
 }
 
@@ -1382,13 +2404,84 @@ function closeStrategyModal() {
     document.getElementById('strategyModal').classList.remove('active');
 }
 
+function resolveConfirmRequest(result) {
+    if (typeof confirmState.resolver === 'function') {
+        const resolve = confirmState.resolver;
+        confirmState.resolver = null;
+        resolve(result);
+    }
+}
+
+function requestDeleteConfirmation(message) {
+    const modal = document.getElementById('confirmModal');
+    const messageElement = document.getElementById('confirmModalMessage');
+    const approveButton = document.getElementById('confirmModalApprove');
+
+    if (!modal || !messageElement) {
+        return Promise.resolve(window.confirm(message));
+    }
+
+    closePickerPopovers();
+    resolveConfirmRequest(false);
+    messageElement.textContent = message;
+    modal.classList.add('active');
+
+    if (approveButton) {
+        requestAnimationFrame(() => approveButton.focus());
+    }
+
+    return new Promise(resolve => {
+        confirmState.resolver = resolve;
+    });
+}
+
+function closeConfirmModal() {
+    const modal = document.getElementById('confirmModal');
+    const messageElement = document.getElementById('confirmModalMessage');
+
+    if (!modal) {
+        return;
+    }
+
+    modal.classList.remove('active');
+    if (messageElement) {
+        messageElement.textContent = '';
+    }
+    resolveConfirmRequest(false);
+}
+
+function confirmModalAction() {
+    const modal = document.getElementById('confirmModal');
+    const messageElement = document.getElementById('confirmModalMessage');
+
+    if (!modal) {
+        return;
+    }
+
+    modal.classList.remove('active');
+    if (messageElement) {
+        messageElement.textContent = '';
+    }
+    resolveConfirmRequest(true);
+}
+
 document.querySelectorAll('.modal-overlay').forEach(modal => {
     modal.addEventListener('click', function(e) {
         if (e.target === this) {
             closePickerPopovers();
+            if (this.id === 'confirmModal') {
+                closeConfirmModal();
+                return;
+            }
             this.classList.remove('active');
         }
     });
+});
+
+document.addEventListener('keydown', event => {
+    if (event.key === 'Escape' && document.getElementById('confirmModal')?.classList.contains('active')) {
+        closeConfirmModal();
+    }
 });
 
 // ===== 代币芯片选择 =====
@@ -1420,7 +2513,7 @@ function initPlatformChips() {
         chip.addEventListener('click', function() {
             chips.forEach(c => c.classList.remove('selected'));
             this.classList.add('selected');
-            platformInput.value = this.getAttribute('data-platform');
+            platformInput.value = getPlatformChipValue(this);
             this.style.transform = 'scale(0.95)';
             setTimeout(() => { this.style.transform = ''; }, 150);
         });
@@ -1429,6 +2522,47 @@ function initPlatformChips() {
     platformInput.addEventListener('input', function() {
         chips.forEach(chip => chip.classList.remove('selected'));
     });
+
+    updatePlatformChipLabels();
+}
+
+function updatePlatformChipLabels() {
+    const platformInput = document.getElementById('platform');
+
+    document.querySelectorAll('.platform-chip').forEach(chip => {
+        const label = getPlatformChipValue(chip);
+        chip.textContent = label;
+
+        if (chip.classList.contains('selected') && platformInput) {
+            platformInput.value = label;
+        }
+    });
+}
+
+function getPlatformChipValue(chip) {
+    return chip.getAttribute(`data-platform-${currentLang}`) || chip.textContent.trim();
+}
+
+function formatPlatformDisplay(platform) {
+    const key = getPlatformTranslationKey(platform);
+
+    if (!key) {
+        return platform;
+    }
+
+    return PLATFORM_TRANSLATIONS[key][currentLang] || platform;
+}
+
+function getPlatformTranslationKey(platform) {
+    if (!platform) {
+        return '';
+    }
+
+    const normalized = platform.trim().toLowerCase();
+
+    return Object.entries(PLATFORM_TRANSLATIONS).find(([, labels]) => {
+        return Object.values(labels).some(label => label.toLowerCase() === normalized);
+    })?.[0] || '';
 }
 
 // ===== 详细说明功能 =====
@@ -1442,7 +2576,7 @@ function showDetail(index) {
         const modalTitle = document.querySelector('#detailModal .modal-header h3');
         modalTitle.textContent = formatText(text.detailTitlePattern, {
             token: item.token,
-            platform: item.platform
+            platform: formatPlatformDisplay(item.platform)
         });
         document.getElementById('detailContent').textContent = item.description;
         document.getElementById('detailModal').classList.add('active');
@@ -1508,7 +2642,11 @@ if (textarea && charCount) {
 
 function calculateRemainingTime(endDate) {
     const text = LANGUAGES[currentLang];
-    const end = new Date(endDate);
+    if (!endDate) {
+        return { days: 0, label: text.expired };
+    }
+
+    const end = parseDisplayDateValue(endDate, true);
     const now = new Date();
     const diff = end - now;
     const days = Math.ceil(diff / (1000 * 60 * 60 * 24));
@@ -1525,7 +2663,11 @@ function calculateRemainingTime(endDate) {
 }
 
 function formatDateTime(dateStr) {
-    const date = new Date(dateStr);
+    if (!dateStr) {
+        return '';
+    }
+
+    const date = parseDisplayDateValue(dateStr);
     const locale = currentLang === 'zh' ? 'zh-CN' : 'en-US';
     const hasTime = /T\d{2}:\d{2}/.test(dateStr);
 
@@ -1539,6 +2681,31 @@ function formatDateTime(dateStr) {
             hour12: false
         } : {})
     });
+}
+
+function getRecordDisplayValue(item, type) {
+    const dateKey = `${type}Date`;
+    const timeKey = `${type}Time`;
+    const atKey = `${type}At`;
+
+    if (item[timeKey]) {
+        return item[atKey] || buildDateTimeValue(item[dateKey], item[timeKey]);
+    }
+
+    return item[dateKey] || item[atKey];
+}
+
+function parseDisplayDateValue(dateStr, useEndOfDay = false) {
+    if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+        const [year, month, day] = dateStr.split('-').map(Number);
+        if (useEndOfDay) {
+            return new Date(year, month - 1, day, 23, 59, 59, 999);
+        }
+
+        return new Date(year, month - 1, day);
+    }
+
+    return new Date(dateStr);
 }
 
 function buildDateTimeValue(date, time) {

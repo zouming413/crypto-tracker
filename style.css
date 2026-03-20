@@ -245,6 +245,17 @@ body {
     background: #ececec;
 }
 
+.apple-button-danger {
+    border-color: rgba(255, 99, 99, 0.26);
+    background: rgba(255, 99, 99, 0.12);
+    color: #ffd6d6;
+}
+
+.apple-button-danger:hover {
+    background: rgba(255, 99, 99, 0.18);
+    border-color: rgba(255, 99, 99, 0.38);
+}
+
 .table-container,
 .apple-card,
 .strategy-table-container {
@@ -345,6 +356,11 @@ body {
 
 .table-detail-btn,
 .table-delete-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 40px;
+    min-width: 82px;
     padding: 8px 10px;
     border: 1px solid var(--border-strong);
     border-radius: 10px;
@@ -412,6 +428,247 @@ body {
     font-size: 13px;
 }
 
+.strategy-toolbar {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(300px, 360px);
+    gap: 18px;
+    align-items: end;
+}
+
+.strategy-add-panel {
+    min-width: 0;
+}
+
+.strategy-add-row {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+}
+
+.strategy-add-button {
+    flex: 0 0 132px;
+}
+
+.strategy-inline-button {
+    min-height: 42px;
+    min-width: 108px;
+    padding: 10px 14px;
+}
+
+.strategy-card-header {
+    align-items: flex-end;
+}
+
+.strategy-card-heading {
+    display: flex;
+    flex: 1;
+    align-items: end;
+    justify-content: space-between;
+    gap: 18px;
+    flex-wrap: wrap;
+}
+
+.strategy-card-title {
+    min-width: 0;
+}
+
+.strategy-meta-controls {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(140px, 180px));
+    gap: 12px;
+    align-items: end;
+}
+
+.strategy-ratio-control {
+    width: min(180px, 100%);
+}
+
+.strategy-meta-controls .input-shell .strategy-field {
+    padding-right: 74px;
+}
+
+.strategy-meta-controls .input-suffix {
+    font-size: 11px;
+}
+
+.strategy-ratio-label {
+    display: block;
+    margin-bottom: 8px;
+    color: var(--text-muted);
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.strategy-field {
+    width: 100%;
+    min-height: 42px;
+    padding: 10px 12px;
+    border: 1px solid var(--border-strong);
+    border-radius: 10px;
+    background: var(--panel-soft);
+    color: var(--text);
+    font-family: var(--font-body);
+    font-size: 14px;
+    transition: var(--transition);
+}
+
+.strategy-select,
+.strategy-field-select {
+    appearance: none;
+    padding-right: 52px;
+    background-image:
+        linear-gradient(45deg, transparent 50%, var(--text-muted) 50%),
+        linear-gradient(135deg, var(--text-muted) 50%, transparent 50%);
+    background-position:
+        calc(100% - 24px) calc(50% - 3px),
+        calc(100% - 18px) calc(50% - 3px);
+    background-size: 6px 6px;
+    background-repeat: no-repeat;
+}
+
+.strategy-field-select {
+    min-width: 116px;
+}
+
+.strategy-quantity {
+    color: var(--text);
+    font-size: 13px;
+    font-weight: 700;
+    display: inline-flex;
+    width: 100%;
+    justify-content: flex-end;
+    color: var(--text);
+    white-space: nowrap;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: 'tnum' 1;
+}
+
+.strategy-amount {
+    color: var(--text);
+    font-size: 13px;
+    font-weight: 700;
+    display: inline-flex;
+    width: 100%;
+    justify-content: flex-end;
+    white-space: nowrap;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: 'tnum' 1;
+}
+
+.strategy-row-delete,
+.strategy-delete-btn {
+    align-self: flex-end;
+    margin-bottom: 1px;
+    min-width: 108px;
+}
+
+.strategy-table-empty {
+    color: var(--text-muted);
+    font-size: 13px;
+    text-align: center;
+}
+
+.strategy-table th,
+.strategy-table td {
+    vertical-align: middle;
+}
+
+.strategy-table th:nth-child(1),
+.strategy-table td:nth-child(1) {
+    min-width: 132px;
+}
+
+.strategy-table th:nth-child(2),
+.strategy-table td:nth-child(2) {
+    min-width: 128px;
+}
+
+.strategy-table th:nth-child(3),
+.strategy-table td:nth-child(3),
+.strategy-table th:nth-child(4),
+.strategy-table td:nth-child(4) {
+    min-width: 144px;
+}
+
+.strategy-table th:nth-child(5),
+.strategy-table td:nth-child(5) {
+    min-width: 188px;
+}
+
+.strategy-table th:nth-child(6),
+.strategy-table td:nth-child(6) {
+    min-width: 116px;
+}
+
+.strategy-table th:nth-child(4),
+.strategy-table td:nth-child(4),
+.strategy-table th:nth-child(5),
+.strategy-table td:nth-child(5) {
+    text-align: right;
+}
+
+.strategy-total-row td {
+    background: #141414;
+    border-top: 1px solid var(--border);
+}
+
+.strategy-total-label-cell {
+    color: var(--text-muted);
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.strategy-total-cell {
+    min-width: 220px;
+}
+
+.strategy-total-line {
+    display: grid;
+    grid-template-columns: 40px minmax(0, 1fr);
+    align-items: baseline;
+    gap: 12px;
+    color: var(--text-soft);
+    font-size: 12px;
+}
+
+.strategy-total-label {
+    color: var(--text-muted);
+    font-size: 12px;
+    font-weight: 800;
+    white-space: nowrap;
+}
+
+.strategy-total-line + .strategy-total-line {
+    margin-top: 8px;
+}
+
+.strategy-total-value {
+    display: inline-flex;
+    width: 100%;
+    justify-content: flex-end;
+    color: var(--text);
+    font-weight: 700;
+    text-align: right;
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: 'tnum' 1;
+}
+
+.strategy-total-action-cell {
+    width: 132px;
+    text-align: right;
+}
+
+.strategy-total-action-cell .strategy-inline-button {
+    width: 100%;
+}
+
 .badge-buy {
     border: 1px solid rgba(25, 251, 155, 0.18);
     background: rgba(25, 251, 155, 0.1);
@@ -444,7 +701,8 @@ body {
 
 .apple-input,
 .form-input,
-.form-textarea {
+.form-textarea,
+.strategy-field {
     width: 100%;
     border: 1px solid var(--border-strong);
     border-radius: 12px;
@@ -465,7 +723,8 @@ body {
     position: relative;
 }
 
-.input-shell .form-input {
+.input-shell .form-input,
+.input-shell .strategy-field {
     padding-right: 42px;
 }
 
@@ -506,16 +765,25 @@ body {
 
 .apple-input::placeholder,
 .form-input::placeholder,
-.form-textarea::placeholder {
+.form-textarea::placeholder,
+.strategy-field::placeholder {
     color: var(--text-muted);
 }
 
 .apple-input:focus,
 .form-input:focus,
-.form-textarea:focus {
+.form-textarea:focus,
+.strategy-field:focus {
     outline: none;
     border-color: #4a4a4a;
     background: #1b1b1b;
+}
+
+.apple-input:disabled,
+.strategy-field:disabled,
+.apple-button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
 }
 
 .apple-input.is-invalid,
@@ -803,6 +1071,10 @@ body {
     max-width: 440px;
 }
 
+.confirm-modal-content {
+    max-width: 460px;
+}
+
 #fixedIncomeModal .modal-content,
 #detailModal .modal-content {
     max-width: 780px;
@@ -852,6 +1124,43 @@ body {
     min-height: 0;
     padding: 20px;
     overflow-y: auto;
+}
+
+.confirm-modal-body {
+    display: grid;
+    justify-items: center;
+    gap: 16px;
+    padding-top: 28px;
+    padding-bottom: 28px;
+    text-align: center;
+}
+
+.confirm-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 52px;
+    height: 52px;
+    border: 1px solid rgba(255, 99, 99, 0.24);
+    border-radius: 16px;
+    background: rgba(255, 99, 99, 0.12);
+    color: #ffd6d6;
+    font-family: var(--font-display);
+    font-size: 26px;
+    font-weight: 700;
+    line-height: 1;
+}
+
+.confirm-message {
+    max-width: 320px;
+    color: var(--text);
+    font-size: 15px;
+    font-weight: 700;
+    line-height: 1.6;
+}
+
+.confirm-modal-content .modal-actions .apple-button {
+    min-width: 104px;
 }
 
 #fixedIncomeModal .modal-actions {
@@ -1065,8 +1374,32 @@ input[type='number'] {
         align-items: flex-start;
     }
 
+    .strategy-toolbar,
+    .strategy-card-heading,
+    .strategy-add-row {
+        grid-template-columns: 1fr;
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .strategy-meta-controls {
+        grid-template-columns: 1fr;
+    }
+
+    .strategy-ratio-control {
+        width: 100%;
+    }
+
     .apple-button {
         width: 100%;
+    }
+
+    .strategy-add-button,
+    .strategy-inline-button,
+    .strategy-row-delete,
+    .strategy-delete-btn {
+        width: 100%;
+        min-width: 0;
     }
 
     .fixed-income-table,
@@ -1126,4 +1459,5 @@ input[type='number'] {
         padding-left: 16px;
         padding-right: 16px;
     }
+
 }
