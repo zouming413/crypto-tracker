@@ -8,6 +8,7 @@ const KEYS = {
 // ===== 默认策略数据 =====
 const MAINSTREAM_TOKENS = ['BTC', 'ETH', 'BNB', 'AAVE', 'SKY', 'HYPE', 'SOL', 'UNI', 'PENDLE', 'APT'];
 const DEFAULT_STRATEGY_SEED_AMOUNT = 10000;
+const STRATEGY_PRICE_REFRESH_MS = 60000;
 const DEFAULT_STRATEGY_BLUEPRINTS = {
     BTC: {
         ratio: 60,
@@ -124,12 +125,23 @@ const remoteState = {
     connected: false,
     loading: false
 };
+const strategyPriceState = {
+    values: {},
+    loading: false,
+    timer: null
+};
+const strategyAlertState = {
+    statuses: {},
+    loading: false,
+    timer: null
+};
 
 // ===== 语言包 =====
 const LANGUAGES = {
     zh: {
         pageTitle: 'Simple Crypto',
         navLogo: 'Simple Crypto',
+        overviewEntry: '总览',
         heroSubtitle: '简单安全的加密货币理财策略',
         heroAction: '开始使用',
         heroSecondaryAction: '查看策略',
@@ -231,6 +243,7 @@ const LANGUAGES = {
         actionColumn: '操作',
         levelRatioColumn: '档位占比',
         quantityColumn: '数量',
+        currentPriceLabel: '现价',
         detail: '详情',
         days: '天',
         expired: '已到期',
@@ -276,6 +289,7 @@ const LANGUAGES = {
     en: {
         pageTitle: 'Simple Crypto',
         navLogo: 'Simple Crypto',
+        overviewEntry: 'Overview',
         heroSubtitle: 'Simple and safer crypto wealth strategies',
         heroAction: 'Get Started',
         heroSecondaryAction: 'View Strategy',
@@ -377,6 +391,7 @@ const LANGUAGES = {
         actionColumn: 'Action',
         levelRatioColumn: 'Level Ratio',
         quantityColumn: 'Quantity',
+        currentPriceLabel: 'Live',
         detail: 'Details',
         days: 'days',
         expired: 'Expired',
@@ -439,6 +454,8 @@ document.addEventListener('DOMContentLoaded', async function() {
     await initializeRemoteSync();
     loadTotalAmount();
     updatePageText();
+    await startStrategyPriceFeed();
+    await startStrategyAlertStatusFeed();
 });
 
 // ===== 切换语言 =====
@@ -1369,6 +1386,8 @@ function renderStrategies() {
     }
 
     container.innerHTML = strategies.map(strategy => renderStrategyTable(strategy)).join('');
+    updateRenderedStrategyPrices();
+    updateRenderedStrategyAlertStatuses();
 }
 
 function renderStrategyTable(strategy) {
@@ -1383,7 +1402,10 @@ function renderStrategyTable(strategy) {
             <div class="strategy-header strategy-card-header">
                 <div class="strategy-card-heading">
                     <div class="strategy-card-title">
-                        <div class="strategy-title">${strategy.token}</div>
+                        <div class="strategy-title-row">
+                            <div class="strategy-title">${strategy.token}</div>
+                            ${renderStrategyLivePrice(strategy.token)}
+                        </div>
                         <div class="strategy-subtitle">${formatText(text.strategyRatioSummary, {
                             buy: formatRatioDisplay(summary.buyRatio),
                             sell: formatRatioDisplay(summary.sellRatio),
@@ -1448,13 +1470,27 @@ function renderStrategyTable(strategy) {
     `;
 }
 
+function renderStrategyLivePrice(token) {
+    const text = LANGUAGES[currentLang];
+    const price = getStrategyLivePriceValue(token);
+
+    return `
+        <div class="strategy-live-price ${price === null ? 'is-unavailable' : ''}" data-token-price="${token}">
+            <span class="strategy-live-label">${text.currentPriceLabel}</span>
+            <span class="strategy-live-value">${price === null ? '--' : formatMarketPrice(price)}</span>
+        </div>
+    `;
+}
+
 function renderStrategyLevelRow(strategy, level) {
     const text = LANGUAGES[currentLang];
     const amount = getStrategyLevelAmount(level, strategy);
     const quantity = getStrategyLevelQuantity(level, strategy);
+    const alertStatus = getStrategyAlertStatus(strategy.id, level);
+    const rowClassName = alertStatus.highlightClassName ? ` class="${alertStatus.highlightClassName}"` : '';
 
     return `
-        <tr>
+        <tr${rowClassName} data-alert-key="${alertStatus.alertKey}" title="${alertStatus.title}">
             <td>
                 <input
                     type="number"
@@ -2376,6 +2412,199 @@ function formatCopyNumber(value) {
     return Number(value).toLocaleString('en-US', {
         maximumFractionDigits: 8
     });
+}
+
+function getStrategyLivePriceValue(token) {
+    const numericValue = Number.parseFloat(strategyPriceState.values[token]);
+    return Number.isFinite(numericValue) && numericValue > 0 ? numericValue : null;
+}
+
+function formatMarketPrice(price) {
+    if (!Number.isFinite(price) || price <= 0) {
+        return '--';
+    }
+
+    const maximumFractionDigits = price >= 1000
+        ? 2
+        : price >= 1
+            ? 2
+            : price >= 0.1
+                ? 4
+                : 6;
+
+    return `$${price.toLocaleString('en-US', {
+        minimumFractionDigits: 0,
+        maximumFractionDigits
+    })}`;
+}
+
+function updateRenderedStrategyPrices() {
+    document.querySelectorAll('[data-token-price]').forEach(node => {
+        const token = node.getAttribute('data-token-price');
+        const price = getStrategyLivePriceValue(token);
+        const valueNode = node.querySelector('.strategy-live-value');
+
+        if (valueNode) {
+            valueNode.textContent = price === null ? '--' : formatMarketPrice(price);
+        }
+
+        node.classList.toggle('is-unavailable', price === null);
+    });
+}
+
+function getStrategyAlertStatus(strategyId, level) {
+    const alertKey = `${strategyId}:${level.id}`;
+    const alertRecord = strategyAlertState.statuses[alertKey];
+    const hasLevelConfig = Number.isFinite(Number.parseFloat(level?.price)) && Number.parseFloat(level?.price) > 0 &&
+        Number.isFinite(Number.parseFloat(level?.ratio)) && Number.parseFloat(level?.ratio) > 0;
+
+    if (!hasLevelConfig) {
+        return {
+            alertKey,
+            title: '',
+            highlightClassName: ''
+        };
+    }
+
+    if (!alertRecord) {
+        return {
+            alertKey,
+            title: '',
+            highlightClassName: ''
+        };
+    }
+
+    if (alertRecord.lastNotifiedAt || alertRecord.isMet) {
+        const label = currentLang === 'zh' ? '已触发' : 'Triggered';
+        return {
+            alertKey,
+            title: formatAlertStatusTitle(label, alertRecord.lastNotifiedAt),
+            highlightClassName: 'strategy-alert-row is-triggered'
+        };
+    }
+
+    return {
+        alertKey,
+        title: '',
+        highlightClassName: ''
+    };
+}
+
+function updateRenderedStrategyAlertStatuses() {
+    const strategies = getStrategies();
+
+    document.querySelectorAll('[data-alert-key]').forEach(node => {
+        const alertKey = node.getAttribute('data-alert-key');
+        const strategyId = alertKey.split(':')[0];
+        const strategy = strategies.find(item => item.id === strategyId);
+        const level = strategy?.levels?.find(item => `${strategyId}:${item.id}` === alertKey);
+
+        if (!strategy || !level) {
+            return;
+        }
+
+        const alertStatus = getStrategyAlertStatus(strategy.id, level);
+        node.title = alertStatus.title;
+        node.className = alertStatus.highlightClassName ? alertStatus.highlightClassName : '';
+    });
+}
+
+function formatAlertStatusTitle(label, isoDate) {
+    if (!isoDate) {
+        return label;
+    }
+
+    const date = new Date(isoDate);
+    if (Number.isNaN(date.getTime())) {
+        return label;
+    }
+
+    const locale = currentLang === 'zh' ? 'zh-CN' : 'en-US';
+    const formatted = date.toLocaleString(locale, {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit'
+    });
+
+    return `${label} · ${formatted}`;
+}
+
+async function startStrategyPriceFeed() {
+    await refreshStrategyPrices();
+
+    if (!strategyPriceState.timer) {
+        strategyPriceState.timer = window.setInterval(() => {
+            refreshStrategyPrices();
+        }, STRATEGY_PRICE_REFRESH_MS);
+    }
+}
+
+async function refreshStrategyPrices() {
+    if (strategyPriceState.loading) {
+        return;
+    }
+
+    strategyPriceState.loading = true;
+
+    try {
+        const response = await fetch('/api/prices', {
+            headers: { accept: 'application/json' }
+        });
+
+        if (!response.ok) {
+            throw new Error(`price feed unavailable: ${response.status}`);
+        }
+
+        const result = await response.json();
+        strategyPriceState.values = result?.prices && typeof result.prices === 'object' ? result.prices : {};
+    } catch (error) {
+        if (!Object.keys(strategyPriceState.values).length) {
+            strategyPriceState.values = {};
+        }
+    } finally {
+        strategyPriceState.loading = false;
+        updateRenderedStrategyPrices();
+    }
+}
+
+async function startStrategyAlertStatusFeed() {
+    await refreshStrategyAlertStatuses();
+
+    if (!strategyAlertState.timer) {
+        strategyAlertState.timer = window.setInterval(() => {
+            refreshStrategyAlertStatuses();
+        }, STRATEGY_PRICE_REFRESH_MS);
+    }
+}
+
+async function refreshStrategyAlertStatuses() {
+    if (strategyAlertState.loading) {
+        return;
+    }
+
+    strategyAlertState.loading = true;
+
+    try {
+        const response = await fetch('/api/alert-statuses', {
+            headers: { accept: 'application/json' }
+        });
+
+        if (!response.ok) {
+            throw new Error(`alert statuses unavailable: ${response.status}`);
+        }
+
+        const result = await response.json();
+        strategyAlertState.statuses = result?.statuses && typeof result.statuses === 'object' ? result.statuses : {};
+    } catch (error) {
+        if (!Object.keys(strategyAlertState.statuses).length) {
+            strategyAlertState.statuses = {};
+        }
+    } finally {
+        strategyAlertState.loading = false;
+        updateRenderedStrategyAlertStatuses();
+    }
 }
 
 // ===== 弹窗控制 =====

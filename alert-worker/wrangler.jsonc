@@ -1,0 +1,17 @@
+{
+  "name": "simplecrypto-alerts",
+  "main": "src/index.js",
+  "compatibility_date": "2026-03-21",
+  "account_id": "04099cdf7844e9c19abea1b2fae2ac9f",
+  "workers_dev": true,
+  "triggers": {
+    "crons": ["*/5 * * * *"]
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "simplecrypto-db",
+      "database_id": "da9ece8b-235d-4fc9-8e3b-3e9760ea9351"
+    }
+  ]
+}
