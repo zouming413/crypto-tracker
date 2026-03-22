@@ -476,7 +476,10 @@ function updatePageText() {
     document.title = text.pageTitle;
 
     document.querySelector('.nav-logo').textContent = text.navLogo;
-    document.querySelector('.hero-subtitle').textContent = text.heroSubtitle;
+    const heroSubtitle = document.querySelector('.hero-subtitle');
+    if (heroSubtitle) {
+        heroSubtitle.textContent = text.heroSubtitle;
+    }
     updateStaticI18n(text);
     updatePlatformChipLabels();
     updateSyncButton();

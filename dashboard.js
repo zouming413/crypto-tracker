@@ -21,6 +21,7 @@ const OVERVIEW_COPY = {
         pageTitle: 'Simple Crypto',
         navLogo: 'Simple Crypto',
         configEntry: '配置',
+        footerSubtitle: '简单安全的加密货币理财策略',
         statusLoading: '读取中',
         statusConnected: '云端',
         statusLocal: '本地',
@@ -46,6 +47,7 @@ const OVERVIEW_COPY = {
         pageTitle: 'Simple Crypto',
         navLogo: 'Simple Crypto',
         configEntry: 'Config',
+        footerSubtitle: 'Simple and safer crypto wealth strategies',
         statusLoading: 'Loading',
         statusConnected: 'Cloud',
         statusLocal: 'Local',
@@ -113,6 +115,7 @@ function applyOverviewCopy() {
     setText('overviewNavLogo', text.navLogo);
     setText('fixedIncomePanelTitle', text.fixedIncomePanelTitle);
     setText('strategyPanelTitle', text.strategyPanelTitle);
+    setText('overviewFooterSubtitle', text.footerSubtitle);
 
     const configLink = document.getElementById('configEntryLink');
     if (configLink) {
