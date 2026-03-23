@@ -109,7 +109,7 @@
     <div class="modal-overlay" id="fixedIncomeModal">
         <div class="modal-content">
             <div class="modal-header">
-                <h3 data-i18n="fixedIncomeModalTitle">添加固定收益记录</h3>
+                <h3 id="fixedIncomeModalTitle" data-i18n="fixedIncomeModalTitle">添加固定收益记录</h3>
                 <button class="modal-close" onclick="closeFixedIncomeModal()">
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <line x1="18" y1="6" x2="6" y2="18"></line>
@@ -192,7 +192,7 @@
             </form>
             <div class="modal-actions">
                 <button type="button" class="apple-button apple-button-secondary" onclick="closeFixedIncomeModal()" data-i18n="cancelButton">取消</button>
-                <button type="submit" form="fixedIncomeForm" class="apple-button apple-button-primary" data-i18n="saveButton">保存</button>
+                <button type="submit" id="fixedIncomeSubmitButton" form="fixedIncomeForm" class="apple-button apple-button-primary" data-i18n="saveButton">保存</button>
             </div>
         </div>
     </div>

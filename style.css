@@ -672,7 +672,7 @@ body {
 
 .fixed-income-table th:last-child,
 .fixed-income-table td:last-child {
-    width: 180px;
+    width: 272px;
     white-space: nowrap;
 }
 
@@ -717,6 +717,7 @@ body {
     color: var(--danger);
 }
 
+.table-edit-btn,
 .table-detail-btn,
 .table-delete-btn {
     display: inline-flex;
@@ -735,10 +736,12 @@ body {
     transition: var(--transition);
 }
 
+.table-edit-btn,
 .table-detail-btn {
     margin-right: 8px;
 }
 
+.table-edit-btn:hover,
 .table-detail-btn:hover,
 .table-delete-btn:hover {
     background: #202020;

@@ -135,6 +135,9 @@ const strategyAlertState = {
     loading: false,
     timer: null
 };
+const fixedIncomeFormState = {
+    editIndex: null
+};
 
 // ===== 语言包 =====
 const LANGUAGES = {
@@ -186,6 +189,7 @@ const LANGUAGES = {
         sideStat2Label: '风格',
         sideStat2Value: '操盘优先',
         addButton: '添加记录',
+        editButton: '修改',
         strategyButton: '策略说明',
         totalAmountLabel: '初始总金额 (U)',
         totalAmountHint: '设置后自动计算各档位金额与数量',
@@ -200,6 +204,7 @@ const LANGUAGES = {
         copyMarkdownButton: '复制为 Markdown',
         footerText: '© 2026 Crypto Tracker. 数据存储在本地，绝不上传。',
         fixedIncomeModalTitle: '添加固定收益记录',
+        fixedIncomeEditModalTitle: '修改固定收益记录',
         tokenLabel: '代币名称',
         tokenPlaceholder: '输入或选择代币',
         platformLabel: '平台',
@@ -226,6 +231,7 @@ const LANGUAGES = {
         syncRemoteReady: '云端存储已启用',
         cancelButton: '取消',
         saveButton: '保存',
+        updateButton: '更新',
         tokenRequiredError: '请输入代币名称',
         platformRequiredError: '请输入平台',
         apyRequiredError: '请输入有效的年化收益率',
@@ -334,6 +340,7 @@ const LANGUAGES = {
         sideStat2Label: 'Style',
         sideStat2Value: 'Operator-first',
         addButton: 'Add Record',
+        editButton: 'Edit',
         strategyButton: 'Strategy Info',
         totalAmountLabel: 'Initial Total Amount (U)',
         totalAmountHint: 'Set it to auto-calculate each level amount and quantity',
@@ -348,6 +355,7 @@ const LANGUAGES = {
         copyMarkdownButton: 'Copy as Markdown',
         footerText: '© 2026 Crypto Tracker. Your data stays local and never uploads.',
         fixedIncomeModalTitle: 'Add Fixed Income Record',
+        fixedIncomeEditModalTitle: 'Edit Fixed Income Record',
         tokenLabel: 'Token',
         tokenPlaceholder: 'Type or pick a token',
         platformLabel: 'Platform',
@@ -374,6 +382,7 @@ const LANGUAGES = {
         syncRemoteReady: 'Hosted storage is enabled',
         cancelButton: 'Cancel',
         saveButton: 'Save',
+        updateButton: 'Update',
         tokenRequiredError: 'Please enter a token',
         platformRequiredError: 'Please enter a platform',
         apyRequiredError: 'Please enter a valid APY',
@@ -492,6 +501,7 @@ function updatePageText() {
         }
     }
 
+    syncFixedIncomeModalCopy();
     loadFixedIncome();
     renderStrategies();
     renderOpenPicker();
@@ -1255,6 +1265,7 @@ function renderFixedIncomeTable(data) {
                             <td>${formatDateTime(getRecordDisplayValue(item, 'end'))}</td>
                             <td><span class="table-days ${daysClass}">${remainingMeta.label}</span></td>
                             <td>
+                                <button class="table-edit-btn" onclick="editFixedIncome(${index})">${text.editButton}</button>
                                 ${item.description ? `<button class="table-detail-btn" onclick="showDetail(${index})">${text.detail}</button>` : ''}
                                 <button class="table-delete-btn" onclick="deleteFixedIncome(${index})">${text.delete}</button>
                             </td>
@@ -1315,14 +1326,29 @@ async function addFixedIncome(event) {
 
     const record = { token, platform, apy, startDate, endDate, startTime, endTime, startAt, endAt, description };
     const data = JSON.parse(localStorage.getItem(KEYS.FIXED_INCOME) || '[]');
-    data.push(record);
+    if (fixedIncomeFormState.editIndex !== null && data[fixedIncomeFormState.editIndex]) {
+        data[fixedIncomeFormState.editIndex] = record;
+    } else {
+        data.push(record);
+    }
     data.sort((a, b) => new Date(a.endAt || a.endDate) - new Date(b.endAt || b.endDate));
     localStorage.setItem(KEYS.FIXED_INCOME, JSON.stringify(data));
 
-    document.getElementById('fixedIncomeForm').reset();
     closeFixedIncomeModal();
     loadFixedIncome();
     await syncStateToRemote();
+}
+
+function editFixedIncome(index) {
+    const data = JSON.parse(localStorage.getItem(KEYS.FIXED_INCOME) || '[]');
+    const item = data[index];
+
+    if (!item) {
+        return;
+    }
+
+    populateFixedIncomeForm(item, index);
+    document.getElementById('fixedIncomeModal').classList.add('active');
 }
 
 async function deleteFixedIncome(index) {
@@ -2613,19 +2639,14 @@ async function refreshStrategyAlertStatuses() {
 // ===== 弹窗控制 =====
 
 function openFixedIncomeModal() {
+    prepareFixedIncomeFormForCreate();
     document.getElementById('fixedIncomeModal').classList.add('active');
 }
 
 function closeFixedIncomeModal() {
     closePickerPopovers();
     document.getElementById('fixedIncomeModal').classList.remove('active');
-    document.getElementById('fixedIncomeForm').reset();
-    clearFieldErrors();
-    document.querySelectorAll('.token-chip').forEach(chip => chip.classList.remove('selected'));
-    document.querySelectorAll('.platform-chip').forEach(chip => chip.classList.remove('selected'));
-    document.getElementById('charCount').textContent = '0';
-    resetTimeInput('start');
-    resetTimeInput('end');
+    resetFixedIncomeForm();
 }
 
 function openStrategyModal() {
@@ -2703,6 +2724,22 @@ document.querySelectorAll('.modal-overlay').forEach(modal => {
             closePickerPopovers();
             if (this.id === 'confirmModal') {
                 closeConfirmModal();
+                return;
+            }
+            if (this.id === 'fixedIncomeModal') {
+                closeFixedIncomeModal();
+                return;
+            }
+            if (this.id === 'detailModal') {
+                closeDetailModal();
+                return;
+            }
+            if (this.id === 'syncModal') {
+                closeSyncModal();
+                return;
+            }
+            if (this.id === 'strategyModal') {
+                closeStrategyModal();
                 return;
             }
             this.classList.remove('active');
@@ -2819,6 +2856,102 @@ function closeDetailModal() {
     document.getElementById('detailModal').classList.remove('active');
 }
 
+function prepareFixedIncomeFormForCreate() {
+    fixedIncomeFormState.editIndex = null;
+    resetFixedIncomeForm();
+}
+
+function populateFixedIncomeForm(item, index) {
+    fixedIncomeFormState.editIndex = index;
+    clearFieldErrors();
+    document.getElementById('fixedIncomeForm').reset();
+
+    document.getElementById('token').value = item.token || '';
+    document.getElementById('platform').value = formatPlatformDisplay(item.platform || '');
+    document.getElementById('apy').value = item.apy ?? '';
+    document.getElementById('startDate').value = item.startDate || extractRecordDate(item, 'start');
+    document.getElementById('endDate').value = item.endDate || extractRecordDate(item, 'end');
+    document.getElementById('description').value = item.description || '';
+
+    applyTimeValue('start', item.startTime || extractRecordTime(item, 'start'));
+    applyTimeValue('end', item.endTime || extractRecordTime(item, 'end'));
+    syncTokenChipSelection(item.token);
+    syncPlatformChipSelection(item.platform);
+    syncFixedIncomeModalCopy();
+    updateDescriptionCount();
+}
+
+function resetFixedIncomeForm() {
+    document.getElementById('fixedIncomeForm').reset();
+    clearFieldErrors();
+    fixedIncomeFormState.editIndex = null;
+    syncTokenChipSelection('');
+    syncPlatformChipSelection('');
+    resetTimeInput('start');
+    resetTimeInput('end');
+    syncFixedIncomeModalCopy();
+    updateDescriptionCount();
+}
+
+function syncFixedIncomeModalCopy() {
+    const text = LANGUAGES[currentLang];
+    const title = document.getElementById('fixedIncomeModalTitle');
+    const submitButton = document.getElementById('fixedIncomeSubmitButton');
+    const isEditing = fixedIncomeFormState.editIndex !== null;
+
+    if (title) {
+        title.textContent = isEditing ? text.fixedIncomeEditModalTitle : text.fixedIncomeModalTitle;
+    }
+
+    if (submitButton) {
+        submitButton.textContent = isEditing ? text.updateButton : text.saveButton;
+    }
+}
+
+function syncTokenChipSelection(token) {
+    const normalized = String(token || '').trim().toUpperCase();
+    document.querySelectorAll('.token-chip').forEach(chip => {
+        chip.classList.toggle('selected', chip.getAttribute('data-token') === normalized);
+    });
+}
+
+function syncPlatformChipSelection(platform) {
+    const normalized = String(platform || '').trim().toLowerCase();
+    const translationKey = getPlatformTranslationKey(platform);
+
+    document.querySelectorAll('.platform-chip').forEach(chip => {
+        const chipKey = getPlatformTranslationKey(getPlatformChipValue(chip));
+        const chipLabel = getPlatformChipValue(chip).trim().toLowerCase();
+        const matches = translationKey ? chipKey === translationKey : chipLabel === normalized;
+        chip.classList.toggle('selected', matches);
+    });
+}
+
+function extractRecordDate(item, type) {
+    const value = getRecordDisplayValue(item, type);
+    return typeof value === 'string' ? value.slice(0, 10) : '';
+}
+
+function extractRecordTime(item, type) {
+    const value = getRecordDisplayValue(item, type);
+    if (typeof value !== 'string' || !value.includes('T')) {
+        return '';
+    }
+
+    const time = value.split('T')[1]?.slice(0, 5) || '';
+    return time === '00:00' ? '' : time;
+}
+
+function applyTimeValue(type, value) {
+    const toggle = document.getElementById(`${type}TimeToggle`);
+    const input = document.getElementById(`${type}Time`);
+    const hasValue = Boolean(value);
+
+    toggle.checked = hasValue;
+    toggleTimeInput(type);
+    input.value = hasValue ? value : '';
+}
+
 function toggleTimeInput(type) {
     const toggle = document.getElementById(`${type}TimeToggle`);
     const input = document.getElementById(`${type}Time`);
@@ -2856,18 +2989,24 @@ const textarea = document.getElementById('description');
 const charCount = document.getElementById('charCount');
 
 if (textarea && charCount) {
-    textarea.addEventListener('input', function() {
-        const count = this.value.length;
-        charCount.textContent = count;
+    textarea.addEventListener('input', updateDescriptionCount);
+}
 
-        if (count > 1800) {
-            charCount.style.color = '#ff3b30';
-        } else if (count > 1500) {
-            charCount.style.color = '#ff9500';
-        } else {
-            charCount.style.color = 'var(--text-muted)';
-        }
-    });
+function updateDescriptionCount() {
+    if (!textarea || !charCount) {
+        return;
+    }
+
+    const count = textarea.value.length;
+    charCount.textContent = count;
+
+    if (count > 1800) {
+        charCount.style.color = '#ff3b30';
+    } else if (count > 1500) {
+        charCount.style.color = '#ff9500';
+    } else {
+        charCount.style.color = 'var(--text-muted)';
+    }
 }
 
 // ===== 工具函数 =====
