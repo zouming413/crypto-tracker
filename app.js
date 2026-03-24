@@ -138,6 +138,19 @@ const strategyAlertState = {
 const fixedIncomeFormState = {
     editIndex: null
 };
+const FIXED_INCOME_AUTO_APY_REFRESH_MS = 5 * 60 * 1000;
+const FIXED_INCOME_AUTO_APY_SOURCES = {
+    aaveSafetyModuleStakeAave: {
+        key: 'aave-safety-module-stake-aave',
+        token: 'AAVE',
+        platformKey: 'aave'
+    }
+};
+const fixedIncomeAutoApyState = {
+    cache: {},
+    requestId: 0,
+    loading: false
+};
 
 // ===== 语言包 =====
 const LANGUAGES = {
@@ -210,6 +223,9 @@ const LANGUAGES = {
         platformLabel: '平台',
         platformPlaceholder: '输入或选择平台',
         apyLabel: '年化收益率 (%)',
+        apyAutoLoading: '正在读取 Aave Safety Module 的 Stake AAVE APR...',
+        apyAutoHint: '已自动读取 Aave Safety Module 的 Stake AAVE APR',
+        apyAutoError: '暂时无法读取 Aave Safety Module 的 Stake AAVE APR，请稍后再试',
         startDateLabel: '开始日期',
         endDateLabel: '结束日期',
         addTimeToggle: '添加时间',
@@ -235,6 +251,7 @@ const LANGUAGES = {
         tokenRequiredError: '请输入代币名称',
         platformRequiredError: '请输入平台',
         apyRequiredError: '请输入有效的年化收益率',
+        apyAutoRequiredError: 'AAVE 在 Aave 平台会自动读取 Stake AAVE 的 APR，请稍后再试',
         detailModalTitle: '详细说明',
         closeButton: '关闭',
         emptyState: '暂无固定收益记录',
@@ -361,6 +378,9 @@ const LANGUAGES = {
         platformLabel: 'Platform',
         platformPlaceholder: 'Type or pick a platform',
         apyLabel: 'APY (%)',
+        apyAutoLoading: 'Loading Stake AAVE APR from Aave Safety Module...',
+        apyAutoHint: 'Stake AAVE APR is auto-filled from Aave Safety Module',
+        apyAutoError: 'Unable to load Stake AAVE APR from Aave Safety Module right now. Please try again shortly.',
         startDateLabel: 'Start Date',
         endDateLabel: 'End Date',
         addTimeToggle: 'Add time',
@@ -386,6 +406,7 @@ const LANGUAGES = {
         tokenRequiredError: 'Please enter a token',
         platformRequiredError: 'Please enter a platform',
         apyRequiredError: 'Please enter a valid APY',
+        apyAutoRequiredError: 'AAVE on Aave uses the Stake AAVE APR automatically. Please try again in a moment.',
         detailModalTitle: 'Details',
         closeButton: 'Close',
         emptyState: 'No fixed income records',
@@ -456,6 +477,7 @@ document.addEventListener('DOMContentLoaded', async function() {
 
     initTokenChips();
     initPlatformChips();
+    initFixedIncomeAutoApy();
     initToast();
     initFieldFeedback();
     initCustomPickers();
@@ -492,6 +514,7 @@ function updatePageText() {
     updateStaticI18n(text);
     updatePlatformChipLabels();
     updateSyncButton();
+    syncFixedIncomeApyHint();
 
     const fixedIncomeSection = document.getElementById('fixed-income');
     if (fixedIncomeSection) {
@@ -1217,11 +1240,240 @@ function padNumber(value) {
     return String(value).padStart(2, '0');
 }
 
+function getFixedIncomeAutoApyConfig(token, platform) {
+    const normalizedToken = String(token || '').trim().toUpperCase();
+    const platformKey = getPlatformTranslationKey(platform) || String(platform || '').trim().toLowerCase();
+    const source = FIXED_INCOME_AUTO_APY_SOURCES.aaveSafetyModuleStakeAave;
+
+    if (normalizedToken === source.token && platformKey === source.platformKey) {
+        return {
+            key: source.key,
+            token: source.token,
+            platform: 'Aave'
+        };
+    }
+
+    return null;
+}
+
+function getFixedIncomeAutoApyCacheKey(config) {
+    return config?.key || '';
+}
+
+function getCachedFixedIncomeAutoApy(config) {
+    return fixedIncomeAutoApyState.cache[getFixedIncomeAutoApyCacheKey(config)] || null;
+}
+
+function formatFixedIncomeApyValue(value) {
+    const numericValue = Number.parseFloat(value);
+
+    if (!Number.isFinite(numericValue) || numericValue < 0) {
+        return '';
+    }
+
+    return trimTrailingZeros(numericValue.toFixed(2));
+}
+
+async function requestFixedIncomeAutoApy(config, options = {}) {
+    const cacheKey = getFixedIncomeAutoApyCacheKey(config);
+    const cached = fixedIncomeAutoApyState.cache[cacheKey];
+    const isFresh = cached && Date.now() - cached.fetchedAt < FIXED_INCOME_AUTO_APY_REFRESH_MS;
+
+    if (isFresh && !options.force) {
+        return cached;
+    }
+
+    const query = new URLSearchParams({
+        token: config.token,
+        platform: config.platform
+    });
+    const response = await fetch(`/api/fixed-income-apy?${query.toString()}`, {
+        headers: {
+            accept: 'application/json'
+        }
+    });
+
+    let result = null;
+    try {
+        result = await response.json();
+    } catch {
+        result = null;
+    }
+
+    const apy = Number.parseFloat(result?.apy);
+
+    if (!response.ok || !Number.isFinite(apy) || apy < 0) {
+        throw new Error(result?.error || `Auto APY request failed: ${response.status}`);
+    }
+
+    const entry = {
+        apy: roundNumber(apy, 2),
+        rawApy: apy,
+        source: String(result?.source || cacheKey),
+        fetchedAt: Date.now()
+    };
+
+    fixedIncomeAutoApyState.cache[cacheKey] = entry;
+    return entry;
+}
+
+function setFixedIncomeApyFieldState(mode = 'manual', message = '') {
+    const apyInput = document.getElementById('apy');
+    const hint = document.getElementById('apyHint');
+    const isManaged = mode !== 'manual';
+
+    if (apyInput) {
+        apyInput.readOnly = isManaged;
+        apyInput.classList.toggle('is-auto-filled', isManaged);
+        apyInput.classList.toggle('is-loading', mode === 'loading');
+
+        if (mode === 'loading') {
+            apyInput.setAttribute('aria-busy', 'true');
+        } else {
+            apyInput.removeAttribute('aria-busy');
+        }
+    }
+
+    if (hint) {
+        hint.hidden = !message;
+        hint.textContent = message || '';
+        hint.classList.toggle('is-loading', mode === 'loading');
+        hint.classList.toggle('is-error', mode === 'error');
+    }
+}
+
+function syncFixedIncomeApyHint() {
+    const tokenInput = document.getElementById('token');
+    const platformInput = document.getElementById('platform');
+    const apyInput = document.getElementById('apy');
+
+    if (!tokenInput || !platformInput) {
+        return;
+    }
+
+    const config = getFixedIncomeAutoApyConfig(tokenInput.value, platformInput.value);
+    if (!config) {
+        if (apyInput) {
+            apyInput.dataset.autoApySource = '';
+        }
+        setFixedIncomeApyFieldState('manual');
+        return;
+    }
+
+    const cached = getCachedFixedIncomeAutoApy(config);
+
+    if (cached && apyInput && !apyInput.value) {
+        apyInput.value = formatFixedIncomeApyValue(cached.apy);
+    }
+
+    setFixedIncomeApyFieldState(
+        cached ? 'auto' : 'loading',
+        cached ? LANGUAGES[currentLang].apyAutoHint : LANGUAGES[currentLang].apyAutoLoading
+    );
+}
+
+async function syncFixedIncomeAutoApyField(options = {}) {
+    const tokenInput = document.getElementById('token');
+    const platformInput = document.getElementById('platform');
+    const apyInput = document.getElementById('apy');
+
+    if (!tokenInput || !platformInput || !apyInput) {
+        return null;
+    }
+
+    const config = getFixedIncomeAutoApyConfig(tokenInput.value, platformInput.value);
+    if (!config) {
+        apyInput.dataset.autoApySource = '';
+        setFixedIncomeApyFieldState('manual');
+        return null;
+    }
+
+    const requestId = ++fixedIncomeAutoApyState.requestId;
+    fixedIncomeAutoApyState.loading = true;
+    apyInput.dataset.autoApySource = config.key;
+    setFixedIncomeApyFieldState('loading', LANGUAGES[currentLang].apyAutoLoading);
+
+    try {
+        const entry = await requestFixedIncomeAutoApy(config, options);
+        const selectionStillMatches = Boolean(getFixedIncomeAutoApyConfig(tokenInput.value, platformInput.value));
+
+        if (requestId !== fixedIncomeAutoApyState.requestId || !selectionStillMatches) {
+            return null;
+        }
+
+        apyInput.value = formatFixedIncomeApyValue(entry.apy);
+        setFixedIncomeApyFieldState('auto', LANGUAGES[currentLang].apyAutoHint);
+        return entry;
+    } catch (error) {
+        if (requestId !== fixedIncomeAutoApyState.requestId) {
+            return null;
+        }
+
+        setFixedIncomeApyFieldState('error', LANGUAGES[currentLang].apyAutoError);
+        return null;
+    } finally {
+        if (requestId === fixedIncomeAutoApyState.requestId) {
+            fixedIncomeAutoApyState.loading = false;
+        }
+    }
+}
+
+async function refreshFixedIncomeAutoApyCache(records) {
+    const uniqueConfigs = new Map();
+
+    (records || []).forEach(item => {
+        const config = getFixedIncomeAutoApyConfig(item?.token, item?.platform);
+
+        if (config) {
+            uniqueConfigs.set(config.key, config);
+        }
+    });
+
+    if (!uniqueConfigs.size) {
+        return;
+    }
+
+    const cacheBefore = JSON.stringify(fixedIncomeAutoApyState.cache);
+    await Promise.allSettled(
+        [...uniqueConfigs.values()].map(config => requestFixedIncomeAutoApy(config))
+    );
+
+    if (JSON.stringify(fixedIncomeAutoApyState.cache) !== cacheBefore) {
+        renderFixedIncomeTable(JSON.parse(localStorage.getItem(KEYS.FIXED_INCOME) || '[]'));
+        syncFixedIncomeApyHint();
+    }
+}
+
+function getFixedIncomeDisplayApy(item) {
+    const config = getFixedIncomeAutoApyConfig(item?.token, item?.platform);
+    const cached = config ? getCachedFixedIncomeAutoApy(config) : null;
+    return cached?.apy ?? item?.apy;
+}
+
+function initFixedIncomeAutoApy() {
+    const tokenInput = document.getElementById('token');
+    const platformInput = document.getElementById('platform');
+
+    if (!tokenInput || !platformInput) {
+        return;
+    }
+
+    const handleFieldChange = () => {
+        void syncFixedIncomeAutoApyField();
+    };
+
+    tokenInput.addEventListener('input', handleFieldChange);
+    tokenInput.addEventListener('change', handleFieldChange);
+    platformInput.addEventListener('input', handleFieldChange);
+    platformInput.addEventListener('change', handleFieldChange);
+}
+
 // ===== 固定收益板块 =====
 
 function loadFixedIncome() {
     const data = JSON.parse(localStorage.getItem(KEYS.FIXED_INCOME) || '[]');
     renderFixedIncomeTable(data);
+    void refreshFixedIncomeAutoApyCache(data);
 }
 
 function renderFixedIncomeTable(data) {
@@ -1255,12 +1507,14 @@ function renderFixedIncomeTable(data) {
                 ${data.map((item, index) => {
                     const remainingMeta = calculateRemainingTime(getRecordDisplayValue(item, 'end'));
                     const daysClass = remainingMeta.days <= 7 ? 'danger' : remainingMeta.days <= 30 ? 'warning' : '';
+                    const apy = getFixedIncomeDisplayApy(item);
+                    const apyText = formatFixedIncomeApyValue(apy) || '--';
 
                     return `
                         <tr>
                             <td><span class="table-token">${item.token}</span></td>
                             <td><span class="table-platform">${formatPlatformDisplay(item.platform)}</span></td>
-                            <td><span class="table-apy">${item.apy}%</span></td>
+                            <td><span class="table-apy">${apyText}${apyText === '--' ? '' : '%'}</span></td>
                             <td>${formatDateTime(getRecordDisplayValue(item, 'start'))}</td>
                             <td>${formatDateTime(getRecordDisplayValue(item, 'end'))}</td>
                             <td><span class="table-days ${daysClass}">${remainingMeta.label}</span></td>
@@ -1289,7 +1543,8 @@ async function addFixedIncome(event) {
     const endDateInput = document.getElementById('endDate');
     const token = tokenInput.value.trim();
     const platform = platformInput.value.trim();
-    const apy = parseFloat(apyInput.value);
+    const autoApyConfig = getFixedIncomeAutoApyConfig(token, platform);
+    let apy = parseFloat(apyInput.value);
     const startDate = startDateInput.value;
     const endDate = endDateInput.value;
     const startTime = document.getElementById('startTimeToggle').checked ? document.getElementById('startTime').value : '';
@@ -1306,7 +1561,7 @@ async function addFixedIncome(event) {
         return;
     }
 
-    if (apyInput.value.trim() === '' || Number.isNaN(apy) || apy < 0) {
+    if (!autoApyConfig && (apyInput.value.trim() === '' || Number.isNaN(apy) || apy < 0)) {
         showFieldError(LANGUAGES[currentLang].apyRequiredError, ['apy']);
         return;
     }
@@ -1324,7 +1579,32 @@ async function addFixedIncome(event) {
         return;
     }
 
-    const record = { token, platform, apy, startDate, endDate, startTime, endTime, startAt, endAt, description };
+    let apySource = '';
+    if (autoApyConfig) {
+        const autoApy = await syncFixedIncomeAutoApyField({ force: true });
+
+        if (!autoApy) {
+            showFieldError(LANGUAGES[currentLang].apyAutoRequiredError, ['token', 'platform', 'apy']);
+            return;
+        }
+
+        apy = autoApy.apy;
+        apySource = autoApy.source;
+    }
+
+    const record = {
+        token,
+        platform,
+        apy: roundNumber(apy, 2),
+        startDate,
+        endDate,
+        startTime,
+        endTime,
+        startAt,
+        endAt,
+        description,
+        ...(apySource ? { apySource } : {})
+    };
     const data = JSON.parse(localStorage.getItem(KEYS.FIXED_INCOME) || '[]');
     if (fixedIncomeFormState.editIndex !== null && data[fixedIncomeFormState.editIndex]) {
         data[fixedIncomeFormState.editIndex] = record;
@@ -2763,6 +3043,8 @@ function initTokenChips() {
             chips.forEach(c => c.classList.remove('selected'));
             this.classList.add('selected');
             tokenInput.value = this.getAttribute('data-token');
+            tokenInput.dispatchEvent(new Event('input', { bubbles: true }));
+            tokenInput.dispatchEvent(new Event('change', { bubbles: true }));
             this.style.transform = 'scale(0.95)';
             setTimeout(() => { this.style.transform = ''; }, 150);
         });
@@ -2783,6 +3065,8 @@ function initPlatformChips() {
             chips.forEach(c => c.classList.remove('selected'));
             this.classList.add('selected');
             platformInput.value = getPlatformChipValue(this);
+            platformInput.dispatchEvent(new Event('input', { bubbles: true }));
+            platformInput.dispatchEvent(new Event('change', { bubbles: true }));
             this.style.transform = 'scale(0.95)';
             setTimeout(() => { this.style.transform = ''; }, 150);
         });
@@ -2879,6 +3163,7 @@ function populateFixedIncomeForm(item, index) {
     syncPlatformChipSelection(item.platform);
     syncFixedIncomeModalCopy();
     updateDescriptionCount();
+    void syncFixedIncomeAutoApyField();
 }
 
 function resetFixedIncomeForm() {
@@ -2891,6 +3176,7 @@ function resetFixedIncomeForm() {
     resetTimeInput('end');
     syncFixedIncomeModalCopy();
     updateDescriptionCount();
+    syncFixedIncomeApyHint();
 }
 
 function syncFixedIncomeModalCopy() {

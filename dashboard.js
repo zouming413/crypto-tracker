@@ -15,6 +15,7 @@ const PLATFORM_TRANSLATIONS = {
     Venus: { zh: 'Venus', en: 'Venus' },
     Buidlpad: { zh: 'Buidlpad', en: 'Buidlpad' }
 };
+const FIXED_INCOME_AUTO_APY_REFRESH_MS = 5 * 60 * 1000;
 
 const OVERVIEW_COPY = {
     zh: {
@@ -80,6 +81,7 @@ const overviewState = {
     },
     prices: {},
     alerts: {},
+    fixedIncomeAutoApy: {},
     remoteConfigured: false,
     usingLocalFallback: false,
     refreshTimer: null
@@ -154,6 +156,8 @@ async function refreshOverview() {
     overviewState.alerts = alertsResult.status === 'fulfilled' && alertsResult.value?.statuses && typeof alertsResult.value.statuses === 'object'
         ? alertsResult.value.statuses
         : {};
+
+    await refreshOverviewFixedIncomeAutoApy(overviewState.snapshot.fixedIncome);
 
     updateOverviewStatus();
     renderOverview();
@@ -259,6 +263,7 @@ function renderFixedIncomeOverview() {
         const remaining = calculateRemainingTime(getRecordDisplayValue(item, 'end'));
         const dayClass = remaining.days <= 7 ? 'is-danger' : remaining.days <= 30 ? 'is-warning' : '';
         const description = String(item.description || '').trim();
+        const displayApy = getFixedIncomeDisplayApy(item);
 
         return `
             <article class="overview-income-item">
@@ -266,7 +271,7 @@ function renderFixedIncomeOverview() {
                     <div class="overview-income-top">
                         <span class="overview-token-chip">${escapeHtml(item.token || '--')}</span>
                         <span class="overview-platform-text">${escapeHtml(formatPlatformDisplay(item.platform))}</span>
-                        <strong class="overview-income-apy">${formatPercent(item.apy)}</strong>
+                        <strong class="overview-income-apy">${formatPercent(displayApy)}</strong>
                         <span class="overview-income-days ${dayClass}">${remaining.label}</span>
                     </div>
                     <div class="overview-income-meta">
@@ -597,12 +602,106 @@ function formatText(template, values) {
     }, template);
 }
 
-function formatPlatformDisplay(platform) {
-    const key = String(platform || '').trim();
-    if (PLATFORM_TRANSLATIONS[key]) {
-        return PLATFORM_TRANSLATIONS[key][overviewState.lang];
+function getPlatformTranslationKey(platform) {
+    const normalized = String(platform || '').trim().toLowerCase();
+
+    if (!normalized) {
+        return '';
     }
+
+    return Object.entries(PLATFORM_TRANSLATIONS).find(([, labels]) => {
+        return Object.values(labels).some(label => String(label || '').trim().toLowerCase() === normalized);
+    })?.[0] || '';
+}
+
+function formatPlatformDisplay(platform) {
+    const translationKey = getPlatformTranslationKey(platform);
+
+    if (translationKey && PLATFORM_TRANSLATIONS[translationKey]) {
+        return PLATFORM_TRANSLATIONS[translationKey][overviewState.lang];
+    }
+
+    const key = String(platform || '').trim();
     return key || '--';
+}
+
+function getFixedIncomeAutoApyConfig(token, platform) {
+    const normalizedToken = String(token || '').trim().toUpperCase();
+    const platformKey = String(getPlatformTranslationKey(platform) || platform || '').trim().toLowerCase();
+
+    if (normalizedToken === 'AAVE' && platformKey === 'aave') {
+        return {
+            key: 'aave-safety-module-stake-aave',
+            token: 'AAVE',
+            platform: 'Aave'
+        };
+    }
+
+    return null;
+}
+
+function getFixedIncomeDisplayApy(item) {
+    const config = getFixedIncomeAutoApyConfig(item?.token, item?.platform);
+
+    if (!config) {
+        return item?.apy;
+    }
+
+    const cached = overviewState.fixedIncomeAutoApy[config.key];
+    return cached?.apy ?? item?.apy;
+}
+
+async function refreshOverviewFixedIncomeAutoApy(items) {
+    const configs = new Map();
+
+    (items || []).forEach(item => {
+        const config = getFixedIncomeAutoApyConfig(item?.token, item?.platform);
+
+        if (config) {
+            configs.set(config.key, config);
+        }
+    });
+
+    if (!configs.size) {
+        return;
+    }
+
+    await Promise.allSettled([...configs.values()].map(async config => {
+        const cached = overviewState.fixedIncomeAutoApy[config.key];
+        const isFresh = cached && Date.now() - cached.fetchedAt < FIXED_INCOME_AUTO_APY_REFRESH_MS;
+
+        if (isFresh) {
+            return cached;
+        }
+
+        const query = new URLSearchParams({
+            token: config.token,
+            platform: config.platform
+        });
+        const response = await fetch(`/api/fixed-income-apy?${query.toString()}`, {
+            headers: {
+                accept: 'application/json'
+            }
+        });
+
+        if (!response.ok) {
+            throw new Error(`fixed-income-apy ${response.status}`);
+        }
+
+        const result = await response.json();
+        const apy = normalizeNumber(result?.apy, null);
+
+        if (apy === null || apy < 0) {
+            throw new Error('fixed-income-apy invalid payload');
+        }
+
+        overviewState.fixedIncomeAutoApy[config.key] = {
+            apy,
+            fetchedAt: Date.now()
+        };
+
+        return overviewState.fixedIncomeAutoApy[config.key];
+    }));
 }
 
 function getRecordDisplayValue(item, type) {
